@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId, WithId } from 'mongodb';
 import { CommentsEntity } from '../entities/comments.entity';
 import { LikesEntity } from '../entities/likes.entity';
 import { PostsEntity } from '../entities/posts.entity';
@@ -51,6 +51,7 @@ export const createPost = async (req: Request, res: Response) => {
     commentCount: 0,
     shareCount: 0,
     saveCount: 0,
+    createdAt: new Date(),
   });
   await users.updateOne({ _id: userId }, { $inc: { postCount: 1 } });
 
@@ -77,33 +78,73 @@ export const editPost = async (req: Request, res: Response) => {
 export const likePost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
+
   const liked = await likes.findOne({ userId, postId });
   if (liked) {
     await likes.deleteOne({ userId, postId });
-    await posts.updateOne({ userId, _id: postId }, { $inc: { likeCount: -1 } });
-  } else {
-    await likes.insertOne({ userId, postId });
-    await posts.updateOne({ userId, _id: postId }, { $inc: { likeCount: 1 } });
+    const post = await posts.findOneAndUpdate(
+      { _id: postId },
+      { $inc: { likeCount: -1 } },
+      { returnDocument: 'after' },
+    );
+    return res.json({ post, like: liked });
   }
-  return res.json({ message: 'ok' });
+
+  const like: WithId<LikesEntity> = {
+    _id: new ObjectId(),
+    userId,
+    postId,
+    createdAt: new Date(),
+  };
+
+  await likes.insertOne(like);
+  const post = await posts.findOneAndUpdate({ _id: postId }, { $inc: { likeCount: 1 } }, { returnDocument: 'after' });
+
+  return res.json({ post, like });
 };
 
 export const createComment = async (req: Request, res: Response) => {
   const body = req.body as CommentPostInput;
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
-  await comments.insertOne({ userId, postId, comment: body.comments });
-  await posts.updateOne({ userId, _id: postId }, { $inc: { commentCount: 1 } });
 
-  return res.json({ message: 'Ok' });
+  const post = await posts.findOneAndUpdate(
+    { _id: postId },
+    { $inc: { commentCount: 1 } },
+    { returnDocument: 'after' },
+  );
+
+  if (post) {
+    const comment: WithId<CommentsEntity> = {
+      _id: new ObjectId(),
+      userId,
+      postId,
+      comment: body.comment,
+      createdAt: new Date(),
+    };
+    await comments.insertOne(comment);
+    return res.json({ post, comment });
+  }
+
+  return res.status(404).json({ message: 'Post not found' });
 };
 
 export const deleteComment = async (req: Request, res: Response) => {
   const commentId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
-  await comments.deleteOne({ userId, _id: commentId });
-  await posts.updateOne({ userId, _id: commentId }, { $inc: { commentCount: -1 } });
-  return res.json({ message: 'ok' });
+
+  const { deletedCount } = await comments.deleteOne({ userId, _id: commentId });
+  if (deletedCount) {
+    const post = await posts.findOneAndUpdate(
+      { _id: commentId },
+      { $inc: { commentCount: -1 } },
+      { returnDocument: 'after' },
+    );
+
+    return res.json(post);
+  }
+
+  return res.status(404).json({ message: 'Post not found' });
 };
 
 export const savePost = async (req: Request, res: Response) => {
@@ -139,6 +180,7 @@ export const createStory = async (req: Request, res: Response) => {
     userId,
     caption: body.caption,
     imageURL: body.imageURL,
+    createdAt: new Date(),
   });
   return res.json({ message: 'ok' });
 };
@@ -147,4 +189,36 @@ export const deleteStory = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   await stories.deleteOne({ userId });
   return res.json({ message: 'ok' });
+};
+export const getLikes = async (req: Request, res: Response) => {
+  const postId = new ObjectId(req.params.id);
+  const liked = await likes
+    .aggregate([
+      {
+        $match: {
+          postId,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USERS,
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: {
+          path: '$user',
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: '$user',
+        },
+      },
+    ])
+    .toArray();
+
+  return res.json({ liked });
 };

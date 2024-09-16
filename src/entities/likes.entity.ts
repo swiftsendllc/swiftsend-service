@@ -1,6 +1,7 @@
-import { ObjectId } from "mongodb";
+import { ObjectId } from 'mongodb';
 
-export interface LikesEntity{
-  userId: ObjectId
-  postId: ObjectId
+export interface LikesEntity {
+  userId: ObjectId;
+  postId: ObjectId;
+  createdAt: Date;
 }

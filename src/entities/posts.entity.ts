@@ -8,4 +8,5 @@ export interface PostsEntity {
   commentCount: number;
   shareCount: number;
   saveCount: number;
+  createdAt: Date;
 }

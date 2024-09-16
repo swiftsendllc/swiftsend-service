@@ -52,7 +52,7 @@ export const getFollowing = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: 'users',
+          from: Collections.USERS,
           localField: 'followedUserId',
           foreignField: '_id',
           as: 'user',
@@ -86,7 +86,7 @@ export const getFollowers = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: 'users',
+          from: Collections.USERS,
           localField: 'followingUserId',
           foreignField: '_id',
           as: 'user',
@@ -112,7 +112,7 @@ export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  await followers.insertOne({ followingUserId, followedUserId });
+  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date() });
   await users.updateOne({ _id: followingUserId }, { $set: { followingCount: 1 } });
   await users.updateOne({ _id: followedUserId }, { $set: { followerCount: 1 } });
 
@@ -127,5 +127,5 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   await users.updateOne({ _id: followingUserId }, { $set: { followingCount: -1 } });
   await users.updateOne({ _id: followingUserId }, { $set: { followerCount: -1 } });
 
-  return res.json({message:"ok"})
+  return res.json({ message: 'ok' });
 };

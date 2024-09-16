@@ -9,6 +9,7 @@ import {
   deleteStory,
   editPost,
   getCreatorPosts,
+  getLikes,
   getPosts,
   likePost,
   savePost,
@@ -40,5 +41,7 @@ router.post('/posts/:id/share-post', auth, sharePost);
 router.post('/posts/:id/create-story', auth, createStory);
 
 router.post('/posts/:id/delete-story', auth, deleteStory);
+
+router.get('/posts/:id/get-liked-post', auth, getLikes);
 
 export default router;
