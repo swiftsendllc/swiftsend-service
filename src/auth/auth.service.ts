@@ -39,6 +39,8 @@ export const signup = async (req: Request, res: Response) => {
     email: body.email,
     password: body.password,
     fullName: body.fullName,
+    gender: body.gender,
+    dateOfBirth: body.dateOfBirth,
     username,
     followerCount: 0,
     followingCount: 0,

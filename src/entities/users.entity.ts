@@ -5,6 +5,8 @@ export interface UsersEntity {
   email: string;
   password: string;
   fullName: string;
+  dateOfBirth: Date;
+  gender: string;
   bio?: string;
   username?: string;
   followerCount: number;
