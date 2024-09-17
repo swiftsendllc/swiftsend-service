@@ -42,7 +42,6 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 export const getFollowing = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
 
-  // const following = await followers.find({ followingUserId }).toArray();
   const following = await followers
     .aggregate([
       {

@@ -3,10 +3,8 @@ import { auth } from '../auth/middleware';
 import {
   createComment,
   createPost,
-  createStory,
   deleteComment,
   deletePost,
-  deleteStory,
   editPost,
   getCreatorPosts,
   getLikes,
@@ -38,10 +36,6 @@ router.put('/posts/:id/save-post', auth, savePost);
 
 router.post('/posts/:id/share-post', auth, sharePost);
 
-router.post('/posts/:id/create-story', auth, createStory);
-
-router.post('/posts/:id/delete-story', auth, deleteStory);
-
-router.get('/posts/:id/get-liked-post', auth, getLikes);
+router.get('/posts/:id/likes', auth, getLikes);
 
 export default router;

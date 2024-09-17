@@ -5,13 +5,11 @@ import { LikesEntity } from '../entities/likes.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { SavesEntity } from '../entities/saves.entity';
 import { SharesEntity } from '../entities/shares.entity';
-import { StoriesEntity } from '../entities/stories.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { CommentPostInput } from './dto/comment-post.dto';
 import { CreatePostInput } from './dto/create-post.dto';
-import { CreateStoryInput } from './dto/create-story.dto';
 import { SharePostInput } from './dto/share-post.dto';
 import { UpdatePostInput } from './dto/update-post.dto';
 
@@ -20,7 +18,6 @@ const likes = db.collection<LikesEntity>(Collections.LIKES);
 const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
 const saves = db.collection<SavesEntity>(Collections.SAVES);
 const shares = db.collection<SharesEntity>(Collections.SHARES);
-const stories = db.collection<StoriesEntity>(Collections.STORIES);
 const users = db.collection<UsersEntity>(Collections.USERS);
 
 const getPostsByUserId = async (userId: ObjectId) => {
@@ -172,24 +169,6 @@ export const sharePost = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const createStory = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const body = req.body as CreateStoryInput;
-
-  await stories.insertOne({
-    userId,
-    caption: body.caption,
-    imageURL: body.imageURL,
-    createdAt: new Date(),
-  });
-  return res.json({ message: 'ok' });
-};
-
-export const deleteStory = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  await stories.deleteOne({ userId });
-  return res.json({ message: 'ok' });
-};
 export const getLikes = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const liked = await likes

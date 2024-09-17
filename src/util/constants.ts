@@ -7,4 +7,5 @@ export const Collections = {
   SHARES: 'shares',
   STORIES: 'stories',
   FOLLOWERS: 'followers',
+  MESSAGES: 'messages',
 } as const;
