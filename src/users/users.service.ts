@@ -110,7 +110,7 @@ export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date() });
+  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
   await users.updateOne({ _id: followingUserId }, { $set: { followingCount: 1 } });
   await users.updateOne({ _id: followedUserId }, { $set: { followerCount: 1 } });
 
@@ -121,7 +121,7 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  await followers.deleteOne({ followingUserId, followedUserId });
+  await followers.deleteOne({ followingUserId, followedUserId, deletedAt: new Date() });
   await users.updateOne({ _id: followingUserId }, { $set: { followingCount: -1 } });
   await users.updateOne({ _id: followingUserId }, { $set: { followerCount: -1 } });
 

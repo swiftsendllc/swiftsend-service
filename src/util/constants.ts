@@ -9,4 +9,5 @@ export const Collections = {
   FOLLOWERS: 'followers',
   MESSAGES: 'messages',
   REELS: 'reels',
+  PROFILES: 'profiles',
 } as const;

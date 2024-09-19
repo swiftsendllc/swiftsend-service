@@ -4,4 +4,5 @@ export interface FollowersEntity {
   followingUserId: ObjectId;
   followedUserId: ObjectId;
   createdAt: Date;
+  deletedAt: Date | null;
 }

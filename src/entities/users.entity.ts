@@ -5,15 +5,10 @@ export interface UsersEntity {
   email: string;
   password: string;
   fullName: string;
+  username?: string;
   dateOfBirth: Date;
   gender: string;
-  bio?: string;
-  username?: string;
-  followerCount: number;
-  followingCount: number;
-  postCount: number;
   phoneNumber: number;
-  region: string;
-  createdAt: Date;
-  updatedAt: Date;
+  lastLoginAt: Date;
+  lastActiveAt: Date;
 }
