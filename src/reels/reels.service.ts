@@ -3,17 +3,22 @@ import { ObjectId, WithId } from 'mongodb';
 import { CommentsEntity } from '../entities/comments.entity';
 import { LikesEntity } from '../entities/likes.entity';
 import { ReelsEntity } from '../entities/reels.entity';
+import { SavesEntity } from '../entities/saves.entity';
+import { SharesEntity } from '../entities/shares.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { CommentPostInput } from '../posts/dto/comment-post.dto';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { CreateReelsInput } from './dto/create-reels.dto';
+import { ShareReelInput } from './dto/share-reel.dto';
 import { UpdateReelInput } from './dto/update-reel.dto';
 
 const reels = db.collection<ReelsEntity>(Collections.REELS);
 const users = db.collection<UsersEntity>(Collections.USERS);
 const likes = db.collection<LikesEntity>(Collections.LIKES);
 const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
+const saves = db.collection<SavesEntity>(Collections.SAVES);
+const shares = db.collection<SharesEntity>(Collections.SHARES);
 
 const getReelsByUserId = async (userId: ObjectId) => {
   const result = await reels.find({ userId }).toArray();
@@ -82,7 +87,9 @@ export const likeReel = async (req: Request, res: Response) => {
   const like: WithId<LikesEntity> = {
     _id: new ObjectId(),
     userId,
-    postId: reelsId,
+    reelsId,
+    postId: null,
+    storyId: null,
     createdAt: new Date(),
   };
   await likes.insertOne(like);
@@ -125,7 +132,67 @@ export const deleteComment = async (req: Request, res: Response) => {
       { $inc: { commentCount: -1 } },
       { returnDocument: 'after' },
     );
-    return res.json(reel)
+    return res.json(reel);
   }
-  return res.status(404).json('Reel not found')
+  return res.status(404).json('Reel not found');
+};
+
+export const saveReel = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const reelsId = new ObjectId(req.params.id);
+  const saved = await saves.findOne({ userId, reelsId });
+
+  if (saved) {
+    await saves.deleteOne({ reelsId, userId });
+    await reels.updateOne({ userId, _id: reelsId }, { $inc: { saveCount: -1 } });
+  } else {
+    await saves.insertOne({ userId, reelsId, postId: null });
+    await reels.updateOne({ userId, _id: reelsId }, { $inc: { saveCount: 1 } });
+  }
+  return res.json({ message: 'ok' });
+};
+
+export const shareReel = async (req: Request, res: Response) => {
+  const body = req.body as ShareReelInput;
+  const sharingUserId = new ObjectId(req.user!.userId);
+  const sharedUserId = new ObjectId(body.shareUserId);
+  const reelsId = new ObjectId(req.params.id);
+
+  await shares.insertOne({ reelsId, sharedUserId, sharingUserId, postId: null });
+  await reels.updateOne({ _id: reelsId }, { $inc: { shareCount: 1 } });
+
+  return res.json({ message: 'ok' });
+};
+
+export const getLikes = async (req: Request, res: Response) => {
+  const reelsId = new ObjectId(req.params.id);
+  const liked = await likes
+    .aggregate([
+      {
+        $match: {
+          reelsId,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USERS,
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: {
+          path: '$user',
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: '$user',
+        },
+      },
+    ])
+    .toArray();
+
+  return res.json({ liked });
 };

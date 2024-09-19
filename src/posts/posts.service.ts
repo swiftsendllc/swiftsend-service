@@ -91,6 +91,8 @@ export const likePost = async (req: Request, res: Response) => {
     _id: new ObjectId(),
     userId,
     postId,
+    reelsId: null,
+    storyId: null,
     createdAt: new Date(),
   };
 
@@ -152,7 +154,7 @@ export const savePost = async (req: Request, res: Response) => {
     await saves.deleteOne({ userId, postId });
     await posts.updateOne({ userId, _id: postId }, { $inc: { saveCount: -1 } });
   } else {
-    await saves.insertOne({ userId, postId });
+    await saves.insertOne({ userId, postId, reelsId: null });
     await posts.updateOne({ userId, _id: postId }, { $inc: { saveCount: 1 } });
   }
   return res.json({ message: 'ok' });
@@ -164,7 +166,7 @@ export const sharePost = async (req: Request, res: Response) => {
   const sharedUserId = new ObjectId(body.sharedUserId);
   const postId = new ObjectId(req.params.id);
 
-  await shares.insertOne({ postId, sharedUserId, sharingUserId });
+  await shares.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null });
   await posts.updateOne({ _id: postId }, { $inc: { shareCount: 1 } });
   return res.json({ message: 'ok' });
 };

@@ -47,7 +47,9 @@ export const likeStory = async (req: Request, res: Response) => {
   const like: WithId<LikesEntity> = {
     _id: new ObjectId(),
     userId,
-    postId: storyId,
+    storyId,
+    postId: null,
+    reelsId: null,
     createdAt: new Date(),
   };
   await likes.insertOne(like);
