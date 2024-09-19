@@ -41,10 +41,14 @@ export const signup = async (req: Request, res: Response) => {
     fullName: body.fullName,
     gender: body.gender,
     dateOfBirth: body.dateOfBirth,
+    phoneNumber: body.phoneNumber,
+    region: body.region,
     username,
     followerCount: 0,
     followingCount: 0,
     postCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
   const userId = _id.toString();

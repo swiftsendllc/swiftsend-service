@@ -37,7 +37,7 @@ export const getCreatorReels = async (req: Request, res: Response) => {
   return res.json(result);
 };
 
-export const createReels = async (req: Request, res: Response) => {
+export const createReel = async (req: Request, res: Response) => {
   const body = req.body as CreateReelsInput;
   const userId = new ObjectId(req.user!.userId);
   await reels.insertOne({

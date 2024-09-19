@@ -12,4 +12,8 @@ export interface UsersEntity {
   followerCount: number;
   followingCount: number;
   postCount: number;
+  phoneNumber: number;
+  region: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
