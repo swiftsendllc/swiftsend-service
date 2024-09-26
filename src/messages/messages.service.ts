@@ -15,7 +15,7 @@ export const sendMessage = async (req: Request, res: Response) => {
 
   await messages.insertOne({
     message: body.message,
-    imageURL: body.imageURL,
+    imageURL: body.imageURL ?? null,
     senderId,
     receiverId,
     createdAt: new Date(),

@@ -4,10 +4,10 @@ import { deleteMessage, editMessage, sendMessage } from './messages.service';
 
 const router = Router();
 
-router.get('/messages', auth, sendMessage);
+router.post('/messages', auth, sendMessage);
 
-router.get('/edit', auth, editMessage);
+router.patch('/messages/:id/edit', auth, editMessage);
 
-router.get('/delete', auth, deleteMessage);
+router.delete('/messages/:id/delete', auth, deleteMessage);
 
 export default router;
