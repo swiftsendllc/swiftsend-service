@@ -6,6 +6,7 @@ import express from 'express';
 
 import morgan from 'morgan';
 import loginRouter from './auth/auth.controller';
+import messagesRouter from './messages/messages.controller';
 import postsRouter from './posts/posts.controller';
 import reelsRouter from './reels/reels.controller';
 import storiesRouter from './stories/stories.controller';
@@ -27,7 +28,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'OK' });
 });
 
-app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter);
+app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter);
 
 const port = process.env.PORT;
 app.listen(port, () => {
