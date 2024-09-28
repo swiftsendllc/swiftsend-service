@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { auth } from '../auth/middleware';
-import { deleteMessage, editMessage, sendMessage } from './messages.service';
+import { deleteMessage, editMessage, getChannelMessages, getChannels, sendMessage } from './messages.service';
 
 const router = Router();
+
+router.get('/channels', auth, getChannels);
+
+router.get('/channels/:channelId/messages', auth, getChannelMessages);
 
 router.post('/messages', auth, sendMessage);
 

@@ -8,6 +8,7 @@ export const Collections = {
   STORIES: 'stories',
   FOLLOWERS: 'followers',
   MESSAGES: 'messages',
+  CHANNELS: 'channels',
   REELS: 'reels',
   PROFILES: 'profiles',
 } as const;
