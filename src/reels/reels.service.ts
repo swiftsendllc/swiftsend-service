@@ -32,8 +32,8 @@ export const getReels = async (req: Request, res: Response) => {
 };
 
 export const getCreatorReels = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const result = getReelsByUserId(userId);
+  const userId = new ObjectId(req.params.userId);
+  const result = await getReelsByUserId(userId);
   return res.json(result);
 };
 
@@ -158,7 +158,7 @@ export const shareReel = async (req: Request, res: Response) => {
   const sharedUserId = new ObjectId(body.shareUserId);
   const reelsId = new ObjectId(req.params.id);
 
-  await shares.insertOne({ reelsId, sharedUserId, sharingUserId, postId: null });
+  await shares.insertOne({ reelsId, sharedUserId, sharingUserId, postId: null, storyId: null });
   await reels.updateOne({ _id: reelsId }, { $inc: { shareCount: 1 } });
 
   return res.json({ message: 'ok' });
@@ -175,9 +175,9 @@ export const getLikes = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'userId',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'user',
         },
       },

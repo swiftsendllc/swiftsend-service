@@ -1,6 +1,8 @@
+import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
@@ -8,13 +10,20 @@ import { LoginInput } from './dto/login.dto';
 import { SignUpInput } from './dto/signup.dto';
 import { createToken } from './jwt.service';
 
+const saltRounds = 10;
+
 const users = db.collection<UsersEntity>(Collections.USERS);
+const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 export const login = async (req: Request, res: Response) => {
   const body = req.body as LoginInput;
-  const user = await users.findOne({ email: body.email });
+  const email = body.email.toLowerCase().trim();
+
+  const user = await users.findOne({ email });
   if (!user) return res.status(401).json({});
-  if (user.password !== body.password) return res.status(401).json({});
+
+  const isCorrect = await bcrypt.compare(body.password, user.password);
+  if (!isCorrect) return res.status(401).json({});
 
   const userId = user._id.toString();
   const accessToken = createToken({ userId });
@@ -25,8 +34,14 @@ export const login = async (req: Request, res: Response) => {
 export const signup = async (req: Request, res: Response) => {
   const body = req.body as SignUpInput;
 
-  const user = await users.findOne({ email: body.email });
+  console.log(body);
+
+  const email = body.email.toLowerCase().trim();
+
+  const user = await users.findOne({ email });
   if (user) return res.status(400).json({ message: 'Email already exists' });
+
+  const password = await bcrypt.hash(body.password, saltRounds);
 
   const username = `${body.fullName
     .toLowerCase()
@@ -36,15 +51,28 @@ export const signup = async (req: Request, res: Response) => {
   const _id = new ObjectId();
   await users.insertOne({
     _id,
-    email: body.email,
-    password: body.password,
-    fullName: body.fullName,
+    email,
+    password,
     gender: body.gender,
-    username,
     dateOfBirth: body.dateOfBirth,
-    phoneNumber: body.phoneNumber,
     lastLoginAt: new Date(),
     lastActiveAt: new Date(),
+    createdAt: new Date(),
+  });
+  await userProfiles.insertOne({
+    userId: _id,
+    fullName: body.fullName,
+    username,
+    bio: '',
+    avatarURL: '',
+    bannerURL: '',
+    websiteURL: '',
+    region: '',
+    followerCount: 0,
+    followingCount: 0,
+    postCount: 0,
+    updatedAt: new Date(),
+    createdAt: new Date(),
   });
 
   const userId = _id.toString();

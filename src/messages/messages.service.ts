@@ -28,9 +28,9 @@ export const getChannels = async (req: Request, res: Response) => {
     .aggregate([
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'users',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'receiver',
           pipeline: [
             {

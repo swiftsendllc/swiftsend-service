@@ -19,6 +19,7 @@ declare module 'express' {
     user?: { userId: string };
   }
 }
+
 app.use(express.json());
 app.use(cors());
 

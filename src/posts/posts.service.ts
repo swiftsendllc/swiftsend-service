@@ -7,6 +7,7 @@ import { SavesEntity } from '../entities/saves.entity';
 import { SharesEntity } from '../entities/shares.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
+import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
 import { CommentPostInput } from './dto/comment-post.dto';
 import { CreatePostInput } from './dto/create-post.dto';
@@ -50,7 +51,7 @@ export const createPost = async (req: Request, res: Response) => {
     saveCount: 0,
     createdAt: new Date(),
   });
-  await users.updateOne({ _id: userId }, { $inc: { postCount: 1 } });
+  await updatePostCount(userId, 1);
 
   return res.json({ message: 'ok' });
 };
@@ -59,7 +60,8 @@ export const deletePost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
   await posts.deleteOne({ userId, _id: postId });
-  await users.updateOne({ _id: userId }, { $inc: { postCount: -1 } });
+
+  await updatePostCount(userId, -1);
 
   return res.json({ message: 'ok' });
 };
@@ -166,7 +168,7 @@ export const sharePost = async (req: Request, res: Response) => {
   const sharedUserId = new ObjectId(body.sharedUserId);
   const postId = new ObjectId(req.params.id);
 
-  await shares.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null });
+  await shares.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null, storyId: null });
   await posts.updateOne({ _id: postId }, { $inc: { shareCount: 1 } });
   return res.json({ message: 'ok' });
 };
@@ -182,9 +184,9 @@ export const getLikes = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'userId',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'user',
         },
       },

@@ -1,13 +1,18 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
 import { LikesEntity } from '../entities/likes.entity';
+import { MessagesEntity } from '../entities/messages.entity';
+import { SharesEntity } from '../entities/shares.entity';
 import { StoriesEntity } from '../entities/stories.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { CreateStoryInput } from './dto/create-story.dto';
+import { ShareStoryInput } from './dto/share-story.dto';
 
 const likes = db.collection<LikesEntity>(Collections.LIKES);
 const stories = db.collection<StoriesEntity>(Collections.STORIES);
+const shares = db.collection<SharesEntity>(Collections.SHARES);
+const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 
 const getStoriesByUserId = async (userId: ObjectId) => {
   const result = await stories.find({ userId }).toArray();
@@ -61,6 +66,7 @@ export const likeStory = async (req: Request, res: Response) => {
 
   return res.json({ story, like });
 };
+export const commentStory = async (req: Request, res: Response) => {};
 
 export const getLikesStory = async (req: Request, res: Response) => {
   const storyId = new ObjectId(req.params.id);
@@ -73,9 +79,9 @@ export const getLikesStory = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'userId',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'user',
         },
       },
@@ -99,4 +105,13 @@ export const deleteStory = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   await stories.deleteOne({ userId });
   return res.json({ message: 'ok' });
+};
+
+export const shareStory = async (req: Request, res: Response) => {
+  const body = req.body as ShareStoryInput;
+  const sharingUserId = new ObjectId(req.params.userId);
+  const sharedUserId = new ObjectId(body.sharedUserId);
+  const storyId = new ObjectId(req.params.id);
+
+  await shares.insertOne({ storyId, sharedUserId, sharingUserId, postId: null, reelsId: null });
 };

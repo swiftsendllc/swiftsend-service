@@ -1,13 +1,27 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { FollowersEntity } from '../entities/followers.entity';
+import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { UpdateUserInput } from './dto/update-user.dto';
 
 const users = db.collection<UsersEntity>(Collections.USERS);
+const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
+
+export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
+  await userProfiles.updateOne({ userId }, { $inc: { postCount: count } });
+};
+
+export const updateFollowerCount = async (userId: ObjectId, count: 1 | -1) => {
+  await userProfiles.updateOne({ userId }, { $inc: { followerCount: count } });
+};
+
+export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
+  await userProfiles.updateOne({ userId }, { $inc: { followingCount: count } });
+};
 
 export const getUserProfile = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
@@ -50,9 +64,9 @@ export const getFollowing = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'followedUserId',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'user',
         },
       },
@@ -74,7 +88,6 @@ export const getFollowing = async (req: Request, res: Response) => {
 
 export const getFollowers = async (req: Request, res: Response) => {
   const followedUserId = new ObjectId(req.user!.userId);
-  // const follower = await followers.find({ followedUserId }).toArray();
   const follower = await followers
     .aggregate([
       {
@@ -84,9 +97,9 @@ export const getFollowers = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.USERS,
+          from: Collections.USER_PROFILES,
           localField: 'followingUserId',
-          foreignField: '_id',
+          foreignField: 'userId',
           as: 'user',
         },
       },
@@ -111,8 +124,9 @@ export const followProfile = async (req: Request, res: Response) => {
   const followedUserId = new ObjectId(req.params.userId);
 
   await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
-  await users.updateOne({ _id: followingUserId }, { $set: { followingCount: 1 } });
-  await users.updateOne({ _id: followedUserId }, { $set: { followerCount: 1 } });
+
+  await updateFollowerCount(followedUserId, 1);
+  await updateFollowingCount(followingUserId, 1);
 
   return res.json({ message: 'ok' });
 };
@@ -122,8 +136,9 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   const followedUserId = new ObjectId(req.params.userId);
 
   await followers.deleteOne({ followingUserId, followedUserId, deletedAt: new Date() });
-  await users.updateOne({ _id: followingUserId }, { $set: { followingCount: -1 } });
-  await users.updateOne({ _id: followingUserId }, { $set: { followerCount: -1 } });
+
+  await updateFollowerCount(followedUserId, -1);
+  await updateFollowingCount(followingUserId, -1);
 
   return res.json({ message: 'ok' });
 };
