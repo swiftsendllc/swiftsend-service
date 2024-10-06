@@ -6,12 +6,12 @@ import { ReelsEntity } from '../entities/reels.entity';
 import { SavesEntity } from '../entities/saves.entity';
 import { SharesEntity } from '../entities/shares.entity';
 import { UsersEntity } from '../entities/users.entity';
-import { CommentPostInput } from '../posts/dto/comment-post.dto';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { CreateReelsInput } from './dto/create-reels.dto';
 import { ShareReelInput } from './dto/share-reel.dto';
 import { UpdateReelInput } from './dto/update-reel.dto';
+import { CommentReelInput } from './dto/comment-reel.dto';
 
 const reels = db.collection<ReelsEntity>(Collections.REELS);
 const users = db.collection<UsersEntity>(Collections.USERS);
@@ -98,7 +98,7 @@ export const likeReel = async (req: Request, res: Response) => {
 };
 
 export const createComment = async (req: Request, res: Response) => {
-  const body = req.body as CommentPostInput;
+  const body = req.body as CommentReelInput;
   const userId = new ObjectId(req.user!.userId);
   const reelsId = new ObjectId(req.params.id);
 
