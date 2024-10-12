@@ -34,6 +34,7 @@ export const getUserProfile = async (req: Request, res: Response) => {
 export const updateUserProfile = async (req: Request, res: Response) => {
   const body = req.body as UpdateUserInput;
   const userId = new ObjectId(req.user!.userId);
+  console.log(body);
 
   const username = body.username
     .toLowerCase()
@@ -41,15 +42,25 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     .replace(/[^a-z0-9]/g, '');
 
   const exists = await users.findOne({ username, _id: { $ne: userId } });
-  if (exists) {
-    return res.status(401).json({ message: 'Username already exists!' });
+  try {
+    if (exists) {
+      return res.status(401).json({ message: 'Username already exists!' });
+    }
+    const user = await users.findOneAndUpdate(
+      { _id: userId },
+      { $set: { bio: body.bio, username, updatedAt: new Date() } },
+      { returnDocument: 'after' },
+    );
+    const profiles = await userProfiles.findOneAndUpdate(
+      { userId },
+      { $set : {username, bio: body.bio, websiteURL: body.websiteURL, bannerURL: body.bannerURL, pronouns: body.pronouns} },
+      { returnDocument: 'after' },
+    );
+    return res.json({ user, profiles });
+  } catch (error) {
+    console.error('Error in updating profile :', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
-  const user = await users.findOneAndUpdate(
-    { _id: userId },
-    { $set: { bio: body.bio, username, updatedAt: new Date() } },
-    { returnDocument: 'after' },
-  );
-  return res.json({ user });
 };
 
 export const getFollowing = async (req: Request, res: Response) => {

@@ -8,6 +8,8 @@ export interface UserProfilesEntity {
 
   region: string;
 
+  pronouns: string;
+
   avatarURL: string;
   bannerURL: string;
   websiteURL: string;

@@ -24,7 +24,7 @@ router.post('/reels/create', auth, createReel);
 
 router.patch('/reels/:id/edit', auth, editReel);
 
-router.delete('/reels/;id/delete', auth, deleteReel);
+router.delete('/reels/:id/delete', auth, deleteReel);
 
 router.put('/reels/:id/like', auth, likeReel);
 

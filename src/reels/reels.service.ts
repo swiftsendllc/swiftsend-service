@@ -8,10 +8,10 @@ import { SharesEntity } from '../entities/shares.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
+import { CommentReelInput } from './dto/comment-reel.dto';
 import { CreateReelsInput } from './dto/create-reels.dto';
 import { ShareReelInput } from './dto/share-reel.dto';
 import { UpdateReelInput } from './dto/update-reel.dto';
-import { CommentReelInput } from './dto/comment-reel.dto';
 
 const reels = db.collection<ReelsEntity>(Collections.REELS);
 const users = db.collection<UsersEntity>(Collections.USERS);
@@ -56,8 +56,10 @@ export const createReel = async (req: Request, res: Response) => {
 
 export const editReel = async (req: Request, res: Response) => {
   const body = req.body as UpdateReelInput;
+  console.log(body);
+  const reelsId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
-  await reels.updateOne({ _id: userId }, { $set: { caption: body.caption } });
+  await reels.updateOne({ userId, _id: reelsId }, { $set: { caption: body.caption } });
   return res.json({ message: 'ok' });
 };
 
