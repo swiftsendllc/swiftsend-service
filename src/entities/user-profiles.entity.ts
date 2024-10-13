@@ -6,6 +6,8 @@ export interface UserProfilesEntity {
   username: string;
   bio: string;
 
+  gender: string;
+
   region: string;
 
   pronouns: string;

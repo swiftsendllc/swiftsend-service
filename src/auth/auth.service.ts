@@ -16,30 +16,30 @@ const users = db.collection<UsersEntity>(Collections.USERS);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 export const login = async (req: Request, res: Response) => {
-try {
-  const body = req.body as LoginInput;
-  const email = body.email.toLowerCase().trim();
+  try {
+    const body = req.body as LoginInput;
+    const email = body.email.toLowerCase().trim();
 
-  const user = await users.findOne({ email });
-  if (!user) return res.status(401).json({});
+    const user = await users.findOne({ email });
+    if (!user) return res.status(401).json({});
 
-  const isCorrect = await bcrypt.compare(body.password, user.password);
-  if (!isCorrect) return res.status(401).json({});
+    const isCorrect = await bcrypt.compare(body.password, user.password);
+    if (!isCorrect) return res.status(401).json({});
 
-  const userId = user._id.toString();
-  const accessToken = createToken({ userId });
+    const userId = user._id.toString();
+    const accessToken = createToken({ userId });
 
-  return res.status(200).json({ userId, accessToken });
-} catch (error) {
-console.error('Login error:', error)
-return res.status(500).json({message: "Internal server error"})
-}
+    return res.status(200).json({ userId, accessToken });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
 
 export const signup = async (req: Request, res: Response) => {
   try {
     const body = req.body as SignUpInput;
-    console.log(body)
+    console.log(body);
 
     const email = body.email.toLowerCase().trim();
 
@@ -70,6 +70,7 @@ export const signup = async (req: Request, res: Response) => {
       fullName: body.fullName,
       username,
       bio: '',
+      gender: body.gender,
       avatarURL: '',
       bannerURL: '',
       websiteURL: '',
@@ -93,17 +94,18 @@ export const signup = async (req: Request, res: Response) => {
 };
 
 export const getAuthUser = async (req: Request, res: Response) => {
-  try {
-    const userId = new ObjectId(req.user!.userId);
+  const userId = new ObjectId(req.user!.userId);
+  const user = await users.findOne({
+    _id: userId,
+  });
+  if (!user) return res.status(404).json({ message: 'user not found' });
 
-    const user = await users.findOne({
-      _id: userId,
-    });
+  const userProfile = await userProfiles.findOne({ userId });
+  if (!userProfile) return res.status(404).json({ message: 'Profile not found' });
 
-    if (!user) return res.status(404).json({ message: 'user not found' });
-    return res.status(200).json(user);
-  } catch (error) {
-    console.error('Get user error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
-  }
+  const result = {
+    ...userProfile,
+  };
+
+  return res.status(200).json(result);
 };

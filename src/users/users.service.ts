@@ -51,12 +51,16 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       { $set: { bio: body.bio, username, updatedAt: new Date() } },
       { returnDocument: 'after' },
     );
-    const profiles = await userProfiles.findOneAndUpdate(
+    const userProfile = await userProfiles.findOneAndUpdate(
       { userId },
       { $set : {username, bio: body.bio, websiteURL: body.websiteURL, bannerURL: body.bannerURL, pronouns: body.pronouns} },
       { returnDocument: 'after' },
     );
-    return res.json({ user, profiles });
+
+    const result = {
+      ...userProfile,
+    }
+    return res.json(result);
   } catch (error) {
     console.error('Error in updating profile :', error);
     return res.status(500).json({ message: 'Internal server error' });

@@ -3,6 +3,6 @@ export interface SignUpInput {
   email: string;
   password: string;
   dateOfBirth: Date;
-  gender: string; // needs to be fixed
+  gender: string; 
   region: string;
 }
