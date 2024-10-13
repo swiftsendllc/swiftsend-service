@@ -48,18 +48,27 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     }
     const user = await users.findOneAndUpdate(
       { _id: userId },
-      { $set: { bio: body.bio, username, updatedAt: new Date() } },
+      { $set: { username, updatedAt: new Date() } },
       { returnDocument: 'after' },
     );
     const userProfile = await userProfiles.findOneAndUpdate(
       { userId },
-      { $set : {username, bio: body.bio, websiteURL: body.websiteURL, bannerURL: body.bannerURL, pronouns: body.pronouns} },
+      {
+        $set: {
+          username,
+          bio: body.bio,
+          websiteURL: body.websiteURL,
+          bannerURL: body.bannerURL,
+          pronouns: body.pronouns,
+          updatedAt: new Date(),
+        },
+      },
       { returnDocument: 'after' },
     );
 
     const result = {
       ...userProfile,
-    }
+    };
     return res.json(result);
   } catch (error) {
     console.error('Error in updating profile :', error);

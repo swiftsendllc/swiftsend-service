@@ -59,6 +59,7 @@ export const signup = async (req: Request, res: Response) => {
       _id,
       email,
       password,
+      username,
       gender: body.gender,
       dateOfBirth: new Date(body.dateOfBirth),
       lastLoginAt: currentTime,
