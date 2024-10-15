@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import { shake } from 'radash';
 import { FollowersEntity } from '../entities/followers.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
@@ -34,34 +35,30 @@ export const getUserProfile = async (req: Request, res: Response) => {
 export const updateUserProfile = async (req: Request, res: Response) => {
   const body = req.body as UpdateUserInput;
   const userId = new ObjectId(req.user!.userId);
-  console.log(body);
 
   const username = body.username
-    .toLowerCase()
+    ?.toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
 
-  const exists = await users.findOne({ username, _id: { $ne: userId } });
+  const exists = await userProfiles.findOne({ username, userId: { $ne: userId } });
   try {
     if (exists) {
-      return res.status(401).json({ message: 'Username already exists!' });
+      return res.status(409).json({ message: 'Username already exists!' });
     }
-    const user = await users.findOneAndUpdate(
-      { _id: userId },
-      { $set: { username, updatedAt: new Date() } },
-      { returnDocument: 'after' },
-    );
+
     const userProfile = await userProfiles.findOneAndUpdate(
       { userId },
       {
-        $set: {
+        $set: shake({
           username,
           bio: body.bio,
           websiteURL: body.websiteURL,
           bannerURL: body.bannerURL,
           pronouns: body.pronouns,
+          avatarURL: body.avatarURL,
           updatedAt: new Date(),
-        },
+        }),
       },
       { returnDocument: 'after' },
     );
