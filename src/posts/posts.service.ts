@@ -19,7 +19,6 @@ const likes = db.collection<LikesEntity>(Collections.LIKES);
 const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
 const saves = db.collection<SavesEntity>(Collections.SAVES);
 const shares = db.collection<SharesEntity>(Collections.SHARES);
-const users = db.collection<UsersEntity>(Collections.USERS);
 
 const getPostsByUserId = async (userId: ObjectId) => {
   const result = await posts.find({ userId }).toArray();
@@ -40,6 +39,7 @@ export const getCreatorPosts = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
   const body = req.body as CreatePostInput;
+  console.log(body)
   const userId = new ObjectId(req.user!.userId);
   await posts.insertOne({
     caption: body.caption,
@@ -50,7 +50,8 @@ export const createPost = async (req: Request, res: Response) => {
     shareCount: 0,
     saveCount: 0,
     createdAt: new Date(),
-  });
+  },
+);
   await updatePostCount(userId, 1);
 
   return res.json({ message: 'ok' });
