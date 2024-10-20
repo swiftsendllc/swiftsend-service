@@ -5,7 +5,6 @@ import { LikesEntity } from '../entities/likes.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { SavesEntity } from '../entities/saves.entity';
 import { SharesEntity } from '../entities/shares.entity';
-import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
@@ -20,26 +19,201 @@ const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
 const saves = db.collection<SavesEntity>(Collections.SAVES);
 const shares = db.collection<SharesEntity>(Collections.SHARES);
 
-const getPostsByUserId = async (userId: ObjectId) => {
-  const result = await posts.find({ userId }).toArray();
+const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
+  const result = await posts
+    .aggregate([
+      {
+        $match: { userId },
+      },
+      {
+        $lookup: {
+          from: Collections.LIKES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_likes',
+          pipeline: [
+            {
+              $match: { userId: authUserId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.SAVES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_saves',
+          pipeline: [
+            {
+              $match: { userId: authUserId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $set: {
+          isLiked: {
+            $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
+          },
+          isSaved: {
+            $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          _likes: 0,
+        },
+      },
+      {
+        $sort: {
+          _id: -1,
+        },
+      },
+    ])
+    .toArray();
   return result;
 };
 
 export const getPosts = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const result = await getPostsByUserId(userId);
+  const result = await getPostsByUserId(userId, userId);
   return res.json(result);
 };
 
 export const getCreatorPosts = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.params.userId);
-  const result = await getPostsByUserId(userId);
+  const creatorId = new ObjectId(req.params.userId);
+  const userId = new ObjectId(req.user!.userId);
+
+  const result = await getPostsByUserId(creatorId, userId);
+  return res.json(result);
+};
+
+export const getPost = async (req: Request, res: Response) => {
+  const postId = new ObjectId(req.params.postId);
+  const userId = new ObjectId(req.user!.userId);
+
+  const [result] = await posts
+    .aggregate([
+      {
+        $match: { _id: postId },
+      },
+      {
+        $lookup: {
+          from: Collections.LIKES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_likes',
+          pipeline: [
+            {
+              $match: { userId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.SAVES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_saves',
+          pipeline: [
+            {
+              $match: { userId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.COMMENTS,
+          localField: '_id',
+          foreignField: 'postId',
+          as: 'comments',
+          pipeline: [
+						{
+							$sort: {
+								_id: -1
+							}
+						},
+            {
+              $lookup: {
+                from: Collections.USER_PROFILES,
+                localField: 'userId',
+                foreignField: 'userId',
+                as: 'user',
+              },
+            },
+            {
+              $unwind: '$user',
+            },
+          ],
+        },
+      },
+      {
+        $set: {
+          isLiked: {
+            $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
+          },
+          isSaved: {
+            $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          _likes: 0,
+        },
+      },
+      {
+        $sort: {
+          _id: -1,
+        },
+      },
+    ])
+    .toArray();
+
   return res.json(result);
 };
 
 export const createPost = async (req: Request, res: Response) => {
   const body = req.body as CreatePostInput;
-  console.log(body)
+  console.log(body);
   const userId = new ObjectId(req.user!.userId);
   await posts.insertOne({
     caption: body.caption,
@@ -50,8 +224,7 @@ export const createPost = async (req: Request, res: Response) => {
     shareCount: 0,
     saveCount: 0,
     createdAt: new Date(),
-  },
-);
+  });
   await updatePostCount(userId, 1);
 
   return res.json({ message: 'ok' });
@@ -87,7 +260,7 @@ export const likePost = async (req: Request, res: Response) => {
       { $inc: { likeCount: -1 } },
       { returnDocument: 'after' },
     );
-    return res.json({ post, like: liked });
+    return res.json({ ...post, isLiked: false });
   }
 
   const like: WithId<LikesEntity> = {
@@ -102,7 +275,7 @@ export const likePost = async (req: Request, res: Response) => {
   await likes.insertOne(like);
   const post = await posts.findOneAndUpdate({ _id: postId }, { $inc: { likeCount: 1 } }, { returnDocument: 'after' });
 
-  return res.json({ post, like });
+  return res.json({ ...post, isLiked: true });
 };
 
 export const createComment = async (req: Request, res: Response) => {
@@ -155,12 +328,26 @@ export const savePost = async (req: Request, res: Response) => {
   const saved = await saves.findOne({ userId, postId });
   if (saved) {
     await saves.deleteOne({ userId, postId });
-    await posts.updateOne({ userId, _id: postId }, { $inc: { saveCount: -1 } });
-  } else {
-    await saves.insertOne({ userId, postId, reelsId: null });
-    await posts.updateOne({ userId, _id: postId }, { $inc: { saveCount: 1 } });
+    const post = await posts.findOneAndUpdate(
+      { userId, _id: postId },
+      { $inc: { saveCount: -1 } },
+      { returnDocument: 'after' },
+    );
+    return res.json({...post, isSaved: false});
   }
-  return res.json({ message: 'ok' });
+const like: WithId<SavesEntity> = {
+  _id:new ObjectId(),
+  userId,
+  postId,
+  reelsId: null
+}
+    await saves.insertOne(like);
+   const post =  await posts.findOneAndUpdate(
+		{ userId, _id: postId },
+		{ $inc: { saveCount: 1 } },
+		{returnDocument: "after"});
+
+  return res.json({...post, isSaved: false});
 };
 
 export const sharePost = async (req: Request, res: Response) => {
@@ -205,4 +392,76 @@ export const getLikes = async (req: Request, res: Response) => {
     .toArray();
 
   return res.json({ liked });
+};
+
+export const timeline = async (req: Request, res: Response) => {
+  const result = await posts
+    .aggregate([
+      {
+        $lookup: {
+          from: Collections.LIKES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_likes',
+          pipeline: [
+            {
+              $match: { userId: new ObjectId(req.user!.userId) },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.SAVES,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_saves',
+          pipeline: [
+            {
+              $match: { userId: new ObjectId(req.user!.userId) },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $set: {
+          isLiked: {
+            $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
+          },
+          isSaved: {
+            $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+        },
+      },
+      {
+        $project: {
+          _likes: 0,
+        },
+      },
+      {
+        $sort: {
+          _id: -1,
+        },
+      },
+    ])
+    .toArray();
+
+  return res.json(result);
 };

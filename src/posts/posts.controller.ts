@@ -8,17 +8,23 @@ import {
   editPost,
   getCreatorPosts,
   getLikes,
+  getPost,
   getPosts,
   likePost,
   savePost,
   sharePost,
+  timeline,
 } from './posts.service';
 
 const router = Router();
 
 router.get('/posts', auth, getPosts);
 
-router.get('/posts/:userId', auth, getCreatorPosts);
+router.get('/posts/timeline', auth, timeline);
+
+router.get('/posts/:postId', auth, getPost);
+
+router.get('/posts/creators/:userId', auth, getCreatorPosts);
 
 router.post('/posts/create', auth, createPost);
 
@@ -32,9 +38,9 @@ router.put('/posts/:id/create-comment', auth, createComment);
 
 router.delete('/posts/:id/delete-comment', auth, deleteComment);
 
-router.put('/posts/:id/save-post', auth, savePost);
+router.put('/posts/:id/save', auth, savePost);
 
-router.post('/posts/:id/share-post', auth, sharePost);
+router.post('/posts/:id/share', auth, sharePost);
 
 router.get('/posts/:id/likes', auth, getLikes);
 
