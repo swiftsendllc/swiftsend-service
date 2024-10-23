@@ -7,16 +7,19 @@ import {
   followProfile,
   getFollowers,
   getFollowing,
-  getUserProfile,
+  getUserProfileById,
+  getUserProfiles,
   unFollowProfile,
-  updateUserProfile,
+  updateUserProfile
 } from './users.service';
 
 const upload = multer();
 
 const router = Router();
 
-router.get('/users/me', auth, getUserProfile);
+router.get('/users/search', auth, getUserProfiles);
+
+router.get('/users/:userId', auth, getUserProfileById);
 
 router.patch('/users/me/edit', auth, updateUserProfile);
 

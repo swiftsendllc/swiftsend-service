@@ -10,6 +10,7 @@ import {
   getLikes,
   getPost,
   getPosts,
+  getSaves,
   likePost,
   savePost,
   sharePost,
@@ -43,5 +44,7 @@ router.put('/posts/:id/save', auth, savePost);
 router.post('/posts/:id/share', auth, sharePost);
 
 router.get('/posts/:id/likes', auth, getLikes);
+
+router.get('/posts/saves', auth, getSaves);
 
 export default router;

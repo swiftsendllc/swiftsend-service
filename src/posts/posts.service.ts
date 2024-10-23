@@ -155,11 +155,11 @@ export const getPost = async (req: Request, res: Response) => {
           foreignField: 'postId',
           as: 'comments',
           pipeline: [
-						{
-							$sort: {
-								_id: -1
-							}
-						},
+            {
+              $sort: {
+                _id: -1,
+              },
+            },
             {
               $lookup: {
                 from: Collections.USER_PROFILES,
@@ -333,21 +333,52 @@ export const savePost = async (req: Request, res: Response) => {
       { $inc: { saveCount: -1 } },
       { returnDocument: 'after' },
     );
-    return res.json({...post, isSaved: false});
+    return res.json({ ...post, isSaved: false });
   }
-const like: WithId<SavesEntity> = {
-  _id:new ObjectId(),
-  userId,
-  postId,
-  reelsId: null
-}
-    await saves.insertOne(like);
-   const post =  await posts.findOneAndUpdate(
-		{ userId, _id: postId },
-		{ $inc: { saveCount: 1 } },
-		{returnDocument: "after"});
+  const like: WithId<SavesEntity> = {
+    _id: new ObjectId(),
+    userId,
+    postId,
+    reelsId: null,
+  };
+  await saves.insertOne(like);
+  const post = await posts.findOneAndUpdate(
+    { userId, _id: postId },
+    { $inc: { saveCount: 1 } },
+    { returnDocument: 'after' },
+  );
 
-  return res.json({...post, isSaved: false});
+  return res.json({ ...post, isSaved: false });
+};
+
+export const getSaves = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const save = await saves
+    .aggregate([
+      {
+        $match: { userId },
+      },
+      {
+        $lookup: {
+          from: Collections.POSTS,
+          localField: 'postId',
+          foreignField: '_id',
+          as: 'post',
+        },
+      },
+      {
+        $unwind: {
+          path: '$post',
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: '$post',
+        },
+      },
+    ])
+    .toArray();
+  return res.json({ save });
 };
 
 export const sharePost = async (req: Request, res: Response) => {

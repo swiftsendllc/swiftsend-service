@@ -24,31 +24,24 @@ export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfiles.updateOne({ userId }, { $inc: { followingCount: count } });
 };
 
-export const getUserProfile = async (req: Request, res: Response) => {
+export const getUserProfileById = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const { username, fullName } = req.query;
-  try {
-    const query: any = {};
-    if (userId) {
-      query._id = new ObjectId(userId);
-    }
-    if (fullName || username) {
-      query.$or = [
-        { fullName: { $regex: fullName, $options: 'i' } },
-        { username: { $regex: username, $options: 'i' } },
-      ].filter((condition) => Object.values(condition)[0]);
-    }
+  const user = await users.findOne({ _id: userId });
 
-    const user = await users.findOne(query);
+  return res.json({ user });
+};
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    return res.json({ user });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Server error' });
-  }
+export const getUserProfiles = async (req: Request, res: Response) => {
+  const text = req.query.q as string;
+
+  const result = await userProfiles
+    .find({
+      $or: [{ fullName: { $regex: `.*${text}.*`, $options: 'i' } }, { username: { $regex: text, $options: 'i' } }],
+    })
+    .limit(10)
+    .toArray();
+
+  return res.json(result);
 };
 
 export const updateUserProfile = async (req: Request, res: Response) => {
@@ -162,7 +155,7 @@ export const getFollowers = async (req: Request, res: Response) => {
 export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
-  console.log(followingUserId, followedUserId)
+  console.log(followingUserId, followedUserId);
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow your yourself!" });
   }
