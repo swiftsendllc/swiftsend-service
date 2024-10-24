@@ -25,7 +25,7 @@ router.patch('/users/me/edit', auth, updateUserProfile);
 
 router.post('/users/:userId/follow-user', auth, followProfile);
 
-router.post('/users/:userId/remove-follower', auth, unFollowProfile);
+router.delete('/users/:userId/remove-follower', auth, unFollowProfile);
 
 router.get('/users/:userId/followers', auth, getFollowers);
 

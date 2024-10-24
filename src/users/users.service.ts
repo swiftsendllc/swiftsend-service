@@ -116,7 +116,7 @@ export const getFollowing = async (req: Request, res: Response) => {
     ])
     .toArray();
 
-  return res.json({ following });
+  return res.json(following);
 };
 
 export const getFollowers = async (req: Request, res: Response) => {
@@ -149,7 +149,7 @@ export const getFollowers = async (req: Request, res: Response) => {
     ])
     .toArray();
 
-  return res.json({ follower });
+  return res.json(follower);
 };
 
 export const followProfile = async (req: Request, res: Response) => {
@@ -159,6 +159,9 @@ export const followProfile = async (req: Request, res: Response) => {
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow your yourself!" });
   }
+
+  const isFollowed = await followers.findOne({ followingUserId, followedUserId });
+  if (isFollowed) return res.json({ message: 'ok' });
 
   await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
 
@@ -172,7 +175,8 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  await followers.deleteOne({ followingUserId, followedUserId, deletedAt: new Date() });
+  const { deletedCount } = await followers.deleteOne({ followingUserId, followedUserId });
+  if (!deletedCount) return res.json({ message: 'ok' });
 
   await updateFollowerCount(followedUserId, -1);
   await updateFollowingCount(followingUserId, -1);

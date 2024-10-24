@@ -362,7 +362,7 @@ export const getSaves = async (req: Request, res: Response) => {
         $lookup: {
           from: Collections.POSTS,
           localField: 'postId',
-          foreignField: '_id',
+          foreignField: 'postId',
           as: 'post',
         },
       },
