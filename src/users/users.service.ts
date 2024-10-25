@@ -24,11 +24,15 @@ export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfiles.updateOne({ userId }, { $inc: { followingCount: count } });
 };
 
-export const getUserProfileById = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const user = await users.findOne({ _id: userId });
+export const getUserProfileByUsernameOrId = async (req: Request, res: Response) => {
+  const where = ObjectId.isValid(req.params.usernameOrId)
+    ? { _id: new ObjectId(req.params.usernameOrId) }
+    : { username: req.params.usernameOrId };
 
-  return res.json({ user });
+  const user = await userProfiles.findOne(where);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  return res.json(user);
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {

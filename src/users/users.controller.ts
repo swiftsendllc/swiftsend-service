@@ -7,7 +7,7 @@ import {
   followProfile,
   getFollowers,
   getFollowing,
-  getUserProfileById,
+  getUserProfileByUsernameOrId,
   getUserProfiles,
   unFollowProfile,
   updateUserProfile
@@ -19,7 +19,7 @@ const router = Router();
 
 router.get('/users/search', auth, getUserProfiles);
 
-router.get('/users/:userId', auth, getUserProfileById);
+router.get('/users/:usernameOrId', getUserProfileByUsernameOrId);
 
 router.patch('/users/me/edit', auth, updateUserProfile);
 

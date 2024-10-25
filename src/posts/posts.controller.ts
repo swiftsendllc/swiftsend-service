@@ -25,7 +25,7 @@ router.get('/posts/timeline', auth, timeline);
 
 router.get('/posts/:postId', auth, getPost);
 
-router.get('/posts/creators/:userId', auth, getCreatorPosts);
+router.get('/posts/:userId', auth, getCreatorPosts);
 
 router.post('/posts/create', auth, createPost);
 
