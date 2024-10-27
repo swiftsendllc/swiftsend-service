@@ -29,10 +29,10 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
     ? { _id: new ObjectId(req.params.usernameOrId) }
     : { username: req.params.usernameOrId };
 
-  const user = await userProfiles.findOne(where);
-  if (!user) return res.status(404).json({ message: 'User not found' });
+  const userProfile = await userProfiles.findOne(where);
+  if (!userProfile) return res.status(404).json({ message: 'User not found' });
 
-  return res.json(user);
+  return res.json(userProfile);
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {

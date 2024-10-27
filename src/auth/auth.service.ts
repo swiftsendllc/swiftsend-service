@@ -103,9 +103,5 @@ export const getAuthUser = async (req: Request, res: Response) => {
   const userProfile = await userProfiles.findOne({ userId });
   if (!userProfile) return res.status(404).json({ message: 'Profile not found' });
 
-  const result = {
-    ...userProfile,
-  };
-
-  return res.status(200).json(result);
+  return res.status(200).json(userProfile);
 };

@@ -10,7 +10,7 @@ import {
   getUserProfileByUsernameOrId,
   getUserProfiles,
   unFollowProfile,
-  updateUserProfile
+  updateUserProfile,
 } from './users.service';
 
 const upload = multer();
@@ -19,7 +19,7 @@ const router = Router();
 
 router.get('/users/search', auth, getUserProfiles);
 
-router.get('/users/:usernameOrId', getUserProfileByUsernameOrId);
+router.get('/users/:usernameOrId', auth, getUserProfileByUsernameOrId);
 
 router.patch('/users/me/edit', auth, updateUserProfile);
 
