@@ -100,10 +100,11 @@ export const getPosts = async (req: Request, res: Response) => {
 };
 
 export const getCreatorPosts = async (req: Request, res: Response) => {
-  const creatorId = new ObjectId(req.params.userId);
   const userId = new ObjectId(req.user!.userId);
+  const creatorId = new ObjectId(req.params.userId);
 
   const result = await getPostsByUserId(creatorId, userId);
+  console.log(result)
   return res.json(result);
 };
 

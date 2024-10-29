@@ -31,8 +31,13 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
 
   const userProfile = await userProfiles.findOne(where);
   if (!userProfile) return res.status(404).json({ message: 'User not found' });
+  const isFollowing = await followers.findOne({
+    followingUserId: new ObjectId(req.user!.userId),
+    followedUserId: userProfile?.userId,
+  });
+  const following = !!isFollowing;
 
-  return res.json(userProfile);
+  return res.json({ ...userProfile, following });
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {
