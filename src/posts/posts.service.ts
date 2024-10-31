@@ -57,6 +57,7 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
           ],
         },
       },
+
       {
         $set: {
           isLiked: {
@@ -104,7 +105,7 @@ export const getCreatorPosts = async (req: Request, res: Response) => {
   const creatorId = new ObjectId(req.params.userId);
 
   const result = await getPostsByUserId(creatorId, userId);
-  console.log(result)
+  console.log(result);
   return res.json(result);
 };
 
@@ -176,12 +177,33 @@ export const getPost = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.FOLLOWERS,
+          localField: 'userId',
+          foreignField: 'followedUserId',
+          as: '_following',
+          pipeline: [
+            {
+              $match: {
+                followingUserId: userId,
+              },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
         $set: {
           isLiked: {
             $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
           },
           isSaved: {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+          isFollowing: {
+            $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
           },
         },
       },
@@ -199,6 +221,8 @@ export const getPost = async (req: Request, res: Response) => {
       {
         $project: {
           _likes: 0,
+          _saves: 0,
+          _following: 0,
         },
       },
       {
@@ -427,6 +451,7 @@ export const getLikes = async (req: Request, res: Response) => {
 };
 
 export const timeline = async (req: Request, res: Response) => {
+  const followingUserId = new ObjectId(req.user!.userId);
   const result = await posts
     .aggregate([
       {
@@ -463,6 +488,22 @@ export const timeline = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
+          from: Collections.FOLLOWERS,
+          localField: 'userId',
+          foreignField: 'followedUserId',
+          as: '_following',
+          pipeline: [
+            {
+              $match: { followingUserId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+        },
+      },
+      {
+        $lookup: {
           from: Collections.USER_PROFILES,
           localField: 'userId',
           foreignField: 'userId',
@@ -479,6 +520,9 @@ export const timeline = async (req: Request, res: Response) => {
           },
           isSaved: {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+          IsFollowing: {
+            $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
           },
         },
       },

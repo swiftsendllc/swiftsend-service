@@ -166,13 +166,13 @@ export const followProfile = async (req: Request, res: Response) => {
   const followedUserId = new ObjectId(req.params.userId);
   console.log(followingUserId, followedUserId);
   if (followingUserId.toString() === followedUserId.toString()) {
-    return res.status(400).json({ message: "You can't follow your yourself!" });
+    return res.status(400).json({ message: "You can't follow  yourself!" });
   }
 
   const isFollowed = await followers.findOne({ followingUserId, followedUserId });
   if (isFollowed) return res.json({ message: 'ok' });
 
-  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
+  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null, });
 
   await updateFollowerCount(followedUserId, 1);
   await updateFollowingCount(followingUserId, 1);
