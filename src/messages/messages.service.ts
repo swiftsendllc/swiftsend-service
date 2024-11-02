@@ -27,6 +27,81 @@ export const getChannels = async (req: Request, res: Response) => {
   const messageChannels = await channels
     .aggregate([
       {
+        $match: {
+          users: senderId,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'users',
+          foreignField: 'userId',
+          as: 'receiver',
+          pipeline: [
+            {
+              $match: {
+                _id: {
+                  $ne: senderId,
+                },
+              },
+            },
+            // { $project: { fullName: 1, avatarURL: 1 } },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: '$receiver',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.MESSAGES,
+          localField: '_id',
+          foreignField: 'channelId',
+          as: 'lastMessage',
+          pipeline: [
+            {
+              $sort: {
+                _id: -1,
+              },
+            },
+            {
+              $limit: 1,
+            },
+            // { $project: { message: 1, createdAt: 1, senderId: 1 } },
+          ],
+        },
+      },
+      {
+        $unwind: {
+          path: '$lastMessage',
+        },
+      },
+
+      {
+        $match: {
+          'receiver.userId': { $ne: senderId },
+        },
+      },
+    ])
+    .toArray();
+
+  return res.json(messageChannels);
+};
+
+export const getChannelById = async (req: Request, res: Response) => {
+  const channelId = new ObjectId(req.params.id);
+  const senderId = new ObjectId(req.user!.userId);
+
+  const [channel] = await channels
+    .aggregate([
+      {
+        $match: {
+          _id: channelId,
+        },
+      },
+      {
         $lookup: {
           from: Collections.USER_PROFILES,
           localField: 'users',
@@ -74,12 +149,35 @@ export const getChannels = async (req: Request, res: Response) => {
     ])
     .toArray();
 
-  return res.json(messageChannels);
+  if (!channel) {
+    return res.status(404).json({ message: 'NotFound' });
+  }
+
+  return res.json(channel);
 };
 
 export const getChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
-  const channelMessages = await messages.find({ channelId }).toArray();
+  const channelMessages = await messages
+    .aggregate([
+      {
+        $match: { channelId },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'receiverId',
+          foreignField: 'userId',
+          as: 'receiver',
+        },
+      },
+      {
+        $unwind: {
+          path: '$receiver',
+        },
+      },
+    ])
+    .toArray();
 
   return res.json(channelMessages);
 };
