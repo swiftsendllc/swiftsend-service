@@ -22,6 +22,15 @@ const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   return newChannel;
 };
 
+export const createChannel = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const receiverId = new ObjectId(req.params.userId);
+
+  const channel = await getOrCreateChannel(senderId, receiverId);
+
+  return res.json(channel);
+};
+
 export const getChannels = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const messageChannels = await channels
