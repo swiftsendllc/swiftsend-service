@@ -95,7 +95,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 };
 
 export const getFollowing = async (req: Request, res: Response) => {
-  const followingUserId = new ObjectId(req.user!.userId);
+  const followingUserId = new ObjectId(req.params.userId);
 
   const following = await followers
     .aggregate([
@@ -129,7 +129,7 @@ export const getFollowing = async (req: Request, res: Response) => {
 };
 
 export const getFollowers = async (req: Request, res: Response) => {
-  const followedUserId = new ObjectId(req.user!.userId);
+  const followedUserId = new ObjectId(req.params.userId);
   const follower = await followers
     .aggregate([
       {

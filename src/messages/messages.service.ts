@@ -153,6 +153,7 @@ export const getChannelById = async (req: Request, res: Response) => {
       {
         $unwind: {
           path: '$lastMessage',
+          preserveNullAndEmptyArrays: true,
         },
       },
     ])
@@ -196,7 +197,9 @@ export const sendMessage = async (req: Request, res: Response) => {
 
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
-
+  if (senderId.toString() === receiverId.toString()) {
+    return res.status(400).json({ message: "You can't message yourself" });
+  }
   const channel = await getOrCreateChannel(senderId, receiverId);
 
   await messages.insertOne({
