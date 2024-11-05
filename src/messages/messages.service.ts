@@ -192,6 +192,13 @@ export const getChannelMessages = async (req: Request, res: Response) => {
   return res.json(channelMessages);
 };
 
+export const deleteChannelMessages = async (req: Request, res: Response) => {
+  const channelId = new ObjectId(req.params.channelId);
+  const senderId = new ObjectId(req.user!.userId);
+  await messages.deleteMany({ senderId,  channelId });
+  return res.json({ message: 'ok' });
+};
+
 export const sendMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
 
@@ -209,6 +216,8 @@ export const sendMessage = async (req: Request, res: Response) => {
     senderId,
     receiverId,
     createdAt: new Date(),
+    deletedAt: new Date(),
+     editedAt: new Date()
   });
   return res.json({ message: 'ok' });
 };

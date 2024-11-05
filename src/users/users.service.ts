@@ -3,12 +3,10 @@ import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
 import { FollowersEntity } from '../entities/followers.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
-import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { UpdateUserInput } from './dto/update-user.dto';
 
-const users = db.collection<UsersEntity>(Collections.USERS);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
 
@@ -172,7 +170,7 @@ export const followProfile = async (req: Request, res: Response) => {
   const isFollowed = await followers.findOne({ followingUserId, followedUserId });
   if (isFollowed) return res.json({ message: 'ok' });
 
-  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null, });
+  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
 
   await updateFollowerCount(followedUserId, 1);
   await updateFollowingCount(followingUserId, 1);
