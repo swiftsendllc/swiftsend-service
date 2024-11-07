@@ -9,4 +9,5 @@ export interface MessagesEntity {
   createdAt: Date;
   deletedAt: Date;
   editedAt: Date;
+  deletedBy: ObjectId[];
 }

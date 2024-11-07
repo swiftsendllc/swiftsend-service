@@ -168,10 +168,14 @@ export const getChannelById = async (req: Request, res: Response) => {
 
 export const getChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
+  const userId = new ObjectId(req.user!.userId);
   const channelMessages = await messages
     .aggregate([
       {
-        $match: { channelId },
+        $match: {
+          channelId,
+          deletedBy: { $ne: userId }, //Excludes messages for the current user
+        },
       },
       {
         $lookup: {
@@ -195,7 +199,11 @@ export const getChannelMessages = async (req: Request, res: Response) => {
 export const deleteChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
-  await messages.deleteMany({ senderId,  channelId });
+  // Update messages by adding senderId to the deletedBy array for a specified channel
+  await messages.updateMany(
+    { senderId, channelId },
+    { $addToSet: { deletedBy: senderId } }, // Adds senderId to the deletedBy if not already present
+  );
   return res.json({ message: 'ok' });
 };
 
@@ -217,7 +225,8 @@ export const sendMessage = async (req: Request, res: Response) => {
     receiverId,
     createdAt: new Date(),
     deletedAt: new Date(),
-     editedAt: new Date()
+    editedAt: new Date(),
+    deletedBy: [],
   });
   return res.json({ message: 'ok' });
 };
