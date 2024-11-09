@@ -46,7 +46,7 @@ router.post('/posts/:id/share', auth, sharePost);
 
 router.get('/posts/:id/likes', auth, getLikes);
 
-router.get('/posts/saves', auth, getSaves);
+router.get('/posts/:userId/saves', auth, getSaves);
 
 router.get('/posts/:id/comments', auth, getComment);
 

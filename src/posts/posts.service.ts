@@ -388,13 +388,14 @@ export const getSaves = async (req: Request, res: Response) => {
         $lookup: {
           from: Collections.POSTS,
           localField: 'postId',
-          foreignField: 'postId',
+          foreignField: '_id',
           as: 'post',
         },
       },
       {
         $unwind: {
           path: '$post',
+          preserveNullAndEmptyArrays: false,
         },
       },
       {
@@ -404,7 +405,7 @@ export const getSaves = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  return res.json({ save });
+  return res.json( save );
 };
 
 export const getComment = async (req: Request, res: Response) => {
