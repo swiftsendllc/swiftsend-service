@@ -235,7 +235,7 @@ export const editMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as EditMessageInput;
-  await messages.updateOne({ senderId, _id: messageId }, { $set: { message: body.message }, updatedAt: new Date() });
+  await messages.updateOne({ senderId, _id: messageId }, { $set: { message: body.message, editedAt: new Date() } });
   return res.json({ message: ' ok' });
 };
 

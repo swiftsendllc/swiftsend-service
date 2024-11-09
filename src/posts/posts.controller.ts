@@ -6,6 +6,7 @@ import {
   deleteComment,
   deletePost,
   editPost,
+  getComment,
   getCreatorPosts,
   getLikes,
   getPost,
@@ -37,7 +38,7 @@ router.put('/posts/:id/like', auth, likePost);
 
 router.put('/posts/:id/create-comment', auth, createComment);
 
-router.delete('/posts/:id/delete-comment', auth, deleteComment);
+router.delete('/posts/:postId/comments/:commentId', auth, deleteComment);
 
 router.put('/posts/:id/save', auth, savePost);
 
@@ -46,5 +47,7 @@ router.post('/posts/:id/share', auth, sharePost);
 router.get('/posts/:id/likes', auth, getLikes);
 
 router.get('/posts/saves', auth, getSaves);
+
+router.get('/posts/:id/comments', auth, getComment);
 
 export default router;

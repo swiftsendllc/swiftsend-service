@@ -330,13 +330,14 @@ export const createComment = async (req: Request, res: Response) => {
 };
 
 export const deleteComment = async (req: Request, res: Response) => {
-  const commentId = new ObjectId(req.params.id);
+  const postId = new ObjectId(req.params.postId);
+  const commentId = new ObjectId(req.params.commentId);
   const userId = new ObjectId(req.user!.userId);
 
   const { deletedCount } = await comments.deleteOne({ userId, _id: commentId });
   if (deletedCount) {
     const post = await posts.findOneAndUpdate(
-      { _id: commentId },
+      { _id: postId },
       { $inc: { commentCount: -1 } },
       { returnDocument: 'after' },
     );
@@ -344,7 +345,7 @@ export const deleteComment = async (req: Request, res: Response) => {
     return res.json(post);
   }
 
-  return res.status(404).json({ message: 'Post not found' });
+  return res.status(404).json({ message: 'Comment not found' });
 };
 
 export const savePost = async (req: Request, res: Response) => {
@@ -404,6 +405,29 @@ export const getSaves = async (req: Request, res: Response) => {
     ])
     .toArray();
   return res.json({ save });
+};
+
+export const getComment = async (req: Request, res: Response) => {
+  const postId = new ObjectId(req.params.id);
+  const comment = await comments
+    .aggregate([
+      {
+        $match: { postId },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+    ])
+    .toArray();
+  return res.json({ comment });
 };
 
 export const sharePost = async (req: Request, res: Response) => {
