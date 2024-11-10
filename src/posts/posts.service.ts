@@ -405,15 +405,45 @@ export const getSaves = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  return res.json( save );
+  return res.json(save);
+};
+
+export const getLike = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const like = await likes
+    .aggregate([
+      {
+        $match: { userId },
+      },
+      {
+        $lookup: {
+          from: Collections.POSTS,
+          localField: 'postId',
+          foreignField: '_id',
+          as: 'post',
+        },
+      },
+      {
+        $unwind: {
+          path: '$post',
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: '$post',
+        },
+      },
+    ])
+    .toArray();
+  return res.json(like);
 };
 
 export const getComment = async (req: Request, res: Response) => {
-  const postId = new ObjectId(req.params.id);
+  const userId = new ObjectId(req.user!.userId);
   const comment = await comments
     .aggregate([
       {
-        $match: { postId },
+        $match: { userId },
       },
       {
         $lookup: {
@@ -428,7 +458,7 @@ export const getComment = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  return res.json({ comment });
+  return res.json(comment);
 };
 
 export const sharePost = async (req: Request, res: Response) => {

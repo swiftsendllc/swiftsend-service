@@ -8,6 +8,7 @@ import {
   editPost,
   getComment,
   getCreatorPosts,
+  getLike,
   getLikes,
   getPost,
   getPosts,
@@ -46,8 +47,10 @@ router.post('/posts/:id/share', auth, sharePost);
 
 router.get('/posts/:id/likes', auth, getLikes);
 
+router.get('/posts/user/:userId/likes', auth, getLike);
+
 router.get('/posts/:userId/saves', auth, getSaves);
 
-router.get('/posts/:id/comments', auth, getComment);
+router.get('/posts/:userId/comments', auth, getComment);
 
 export default router;
