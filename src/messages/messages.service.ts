@@ -246,7 +246,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
-  const receiverId = new ObjectId(body.receiverId);
+  const receiverId = new ObjectId(req.params.receiverId);
 
   const forwardedMessage = await messages.findOne({ _id: messageId });
   if (!forwardedMessage) {
