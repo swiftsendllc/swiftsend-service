@@ -215,6 +215,9 @@ export const sendMessage = async (req: Request, res: Response) => {
   if (senderId.toString() === receiverId.toString()) {
     return res.status(400).json({ message: "You can't message yourself" });
   }
+  if (!receiverId) {
+    return res.status(400).json({ message: 'There is no receiverId' });
+  }
   const channel = await getOrCreateChannel(senderId, receiverId);
 
   await messages.insertOne({
@@ -237,6 +240,31 @@ export const editMessage = async (req: Request, res: Response) => {
   const body = req.body as EditMessageInput;
   await messages.updateOne({ senderId, _id: messageId }, { $set: { message: body.message, editedAt: new Date() } });
   return res.json({ message: ' ok' });
+};
+
+export const forwardMessage = async (req: Request, res: Response) => {
+  const body = req.body as MessageInput;
+  const messageId = new ObjectId(req.params.id);
+  const senderId = new ObjectId(req.user!.userId);
+  const receiverId = new ObjectId(body.receiverId);
+
+  const forwardedMessage = await messages.findOne({ _id: messageId });
+  if (!forwardedMessage) {
+    return res.status(400).json({ message: 'Message not found!' });
+  }
+  const channel = await getOrCreateChannel(senderId, receiverId);
+  await messages.insertOne({
+    channelId: channel._id,
+    message: forwardedMessage.message,
+    imageURL: forwardedMessage.imageURL ?? null,
+    senderId,
+    receiverId,
+    createdAt: new Date(),
+    editedAt: new Date(),
+    deletedAt: new Date(),
+    deletedBy: [],
+  });
+  return res.json({ message: 'Message successfully forwarded' });
 };
 
 export const deleteMessage = async (req: Request, res: Response) => {

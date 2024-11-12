@@ -5,6 +5,7 @@ import {
   deleteChannelMessages,
   deleteMessage,
   editMessage,
+  forwardMessage,
   getChannelById,
   getChannelMessages,
   getChannels,
@@ -28,5 +29,8 @@ router.post('/messages', auth, sendMessage);
 router.patch('/messages/:id/edit', auth, editMessage);
 
 router.delete('/messages/:id/delete', auth, deleteMessage);
+
+router.post('/messages/:id/:receiverId/forward', auth, forwardMessage);
+
 
 export default router;
