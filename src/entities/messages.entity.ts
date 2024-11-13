@@ -7,7 +7,7 @@ export interface MessagesEntity {
   message: string;
   imageURL: string | null;
   createdAt: Date;
-  deletedAt: Date;
-  editedAt: Date;
+  deletedAt: Date | null;
+  editedAt: Date| null;
   deletedBy: ObjectId[];
 }

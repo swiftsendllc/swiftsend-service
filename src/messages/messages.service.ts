@@ -227,8 +227,8 @@ export const sendMessage = async (req: Request, res: Response) => {
     senderId,
     receiverId,
     createdAt: new Date(),
-    deletedAt: new Date(),
-    editedAt: new Date(),
+    deletedAt: null,
+    editedAt: null,
     deletedBy: [],
   });
   return res.json({ message: 'ok' });
