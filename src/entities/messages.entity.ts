@@ -10,4 +10,6 @@ export interface MessagesEntity {
   deletedAt: Date | null;
   editedAt: Date| null;
   deletedBy: ObjectId[];
+  deleted: boolean
+  edited: boolean
 }

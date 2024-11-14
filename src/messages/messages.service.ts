@@ -4,6 +4,7 @@ import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
+import { DeleteMessageInput } from './dto/delete-message.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
 import { MessageInput } from './dto/send-message.dto';
 
@@ -230,6 +231,8 @@ export const sendMessage = async (req: Request, res: Response) => {
     deletedAt: null,
     editedAt: null,
     deletedBy: [],
+    deleted: false,
+    edited: false,
   });
   return res.json({ message: 'ok' });
 };
@@ -238,12 +241,14 @@ export const editMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as EditMessageInput;
-  await messages.updateOne({ senderId, _id: messageId }, { $set: { message: body.message, editedAt: new Date() } });
+  await messages.updateOne(
+    { senderId, _id: messageId },
+    { $set: { message: body.message, editedAt: new Date(), edited: true } },
+  );
   return res.json({ message: ' ok' });
 };
 
 export const forwardMessage = async (req: Request, res: Response) => {
-  const body = req.body as MessageInput;
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(req.params.receiverId);
@@ -263,6 +268,8 @@ export const forwardMessage = async (req: Request, res: Response) => {
     editedAt: new Date(),
     deletedAt: new Date(),
     deletedBy: [],
+    deleted: false,
+    edited: false,
   });
   return res.json({ message: 'Message successfully forwarded' });
 };
@@ -270,6 +277,12 @@ export const forwardMessage = async (req: Request, res: Response) => {
 export const deleteMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
-  await messages.deleteOne({ senderId, _id: messageId });
+  const body = req.body as DeleteMessageInput;
+  const ifDeleted = body.deleted;
+  if (ifDeleted) {
+    await messages.updateOne({ senderId, _id: messageId }, { $set: { deleted: true, deletedAt: new Date() } });
+  } else {
+    await messages.updateOne({ senderId, _id: messageId }, { $addToSet: { deletedBy: senderId } });
+  }
   return res.json({ message: ' ok' });
 };

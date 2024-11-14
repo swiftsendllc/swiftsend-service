@@ -28,7 +28,7 @@ router.post('/messages', auth, sendMessage);
 
 router.patch('/messages/:id/edit', auth, editMessage);
 
-router.delete('/messages/:id/delete', auth, deleteMessage);
+router.delete('/messages/:id/:deleted/delete', auth, deleteMessage);
 
 router.post('/messages/:id/:receiverId/forward', auth, forwardMessage);
 
