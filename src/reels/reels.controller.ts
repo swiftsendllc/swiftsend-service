@@ -18,7 +18,7 @@ const router = Router();
 
 router.get('/reels', auth, getReels);
 
-router.get('/reels/:userId', auth, getCreatorReels);
+router.get('/reels/creators/:userId', auth, getCreatorReels);
 
 router.post('/reels/create', auth, createReel);
 

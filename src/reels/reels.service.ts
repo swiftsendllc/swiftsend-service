@@ -12,6 +12,7 @@ import { CommentReelInput } from './dto/comment-reel.dto';
 import { CreateReelsInput } from './dto/create-reels.dto';
 import { ShareReelInput } from './dto/share-reel.dto';
 import { UpdateReelInput } from './dto/update-reel.dto';
+import { updatePostCount } from '../users/users.service';
 
 const reels = db.collection<ReelsEntity>(Collections.REELS);
 const users = db.collection<UsersEntity>(Collections.USERS);
@@ -39,6 +40,7 @@ export const getCreatorReels = async (req: Request, res: Response) => {
 
 export const createReel = async (req: Request, res: Response) => {
   const body = req.body as CreateReelsInput;
+  console.log(body)
   const userId = new ObjectId(req.user!.userId);
   await reels.insertOne({
     caption: body.caption,
@@ -50,7 +52,7 @@ export const createReel = async (req: Request, res: Response) => {
     commentCount: 0,
     createdAt: new Date(),
   });
-  await users.updateOne({ _id: userId }, { $inc: { postCount: 1 } });
+  await updatePostCount(userId, 1)
   return res.json({ message: 'ok' });
 };
 
