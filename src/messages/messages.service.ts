@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
+import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { db } from '../rdb/mongodb';
@@ -12,6 +13,7 @@ const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
+  // const [senderId, receiverId] = [userId1, userId2].sort((a,b) => a.toString().localeCompare(b.toString()))
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
   if (channel) return channel;
 
@@ -200,7 +202,6 @@ export const getChannelMessages = async (req: Request, res: Response) => {
 export const deleteChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
-  // Update messages by adding senderId to the deletedBy array for a specified channel
   await messages.updateMany(
     { senderId, channelId },
     { $addToSet: { deletedBy: senderId } }, // Adds senderId to the deletedBy if not already present
@@ -208,9 +209,20 @@ export const deleteChannelMessages = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
+export const deleteChannel = async (req: Request, res: Response) => {
+  const channelId = new ObjectId(req.params.id);
+  const senderId = new ObjectId(req.user!.userId);
+
+  const channel = await channels.findOne({ _id: channelId, users: senderId });
+  if (!channel) {
+    return res.status(200).json({ message: "Channel not found or you don't have permission" });
+  }
+  await channels.deleteOne({ _id: channelId });
+  return res.status(200).json({ message: 'Channel deleted successfully' });
+};
+
 export const sendMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
-
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
   if (senderId.toString() === receiverId.toString()) {
@@ -219,6 +231,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   if (!receiverId) {
     return res.status(400).json({ message: 'There is no receiverId' });
   }
+
   const channel = await getOrCreateChannel(senderId, receiverId);
 
   await messages.insertOne({
@@ -234,6 +247,21 @@ export const sendMessage = async (req: Request, res: Response) => {
     deleted: false,
     edited: false,
   });
+
+  const receiverSocketId = onlineUsers.get(receiverId.toString());
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit('newMessage', {
+      receiverId: receiverId.toString(),
+      message: body.message,
+      createdAt: new Date().toISOString(),
+      imageURL: body.imageURL ?? null,
+      deletedAt: null,
+      deletedBy: [],
+      deleted: false,
+      edited: false
+    });
+  }
+
   return res.json({ message: 'ok' });
 };
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { auth } from '../auth/middleware';
 import {
   createChannel,
+  deleteChannel,
   deleteChannelMessages,
   deleteMessage,
   editMessage,
@@ -18,7 +19,9 @@ router.get('/channels', auth, getChannels);
 
 router.post('/channels/create/:userId', auth, createChannel);
 
-router.delete('/channels/delete/:channelId', auth, deleteChannelMessages);
+router.delete('/channels/messages/delete/:channelId', auth, deleteChannelMessages);
+
+router.delete("/channels/:id/delete", auth, deleteChannel )
 
 router.get('/channels/:id', auth, getChannelById);
 

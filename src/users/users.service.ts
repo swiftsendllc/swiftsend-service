@@ -40,12 +40,33 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
 
 export const getUserProfiles = async (req: Request, res: Response) => {
   const text = req.query.q as string;
-
+  if (!text) {
+    return res.status(400).json({ error: "Parameter can't be empty" });
+  }
   const result = await userProfiles
-    .find({
-      $or: [{ fullName: { $regex: `.*${text}.*`, $options: 'i' } }, { username: { $regex: text, $options: 'i' } }],
-    })
-    .limit(10)
+    .aggregate([
+      {
+        $search: {
+          index: 'profiles',
+          compound: {
+            should: [
+              {
+                text: {
+                  query: text,
+                  path: 'username',
+                },
+              },
+              {
+                text: {
+                  query: text,
+                  path: 'fullName',
+                },
+              },
+            ],
+          },
+        },
+      },
+    ])
     .toArray();
 
   return res.json(result);
