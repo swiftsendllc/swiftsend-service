@@ -13,7 +13,6 @@ const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
-  // const [senderId, receiverId] = [userId1, userId2].sort((a,b) => a.toString().localeCompare(b.toString()))
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
   if (channel) return channel;
 
@@ -57,7 +56,6 @@ export const getChannels = async (req: Request, res: Response) => {
                 },
               },
             },
-            // { $project: { fullName: 1, avatarURL: 1 } },
           ],
         },
       },
@@ -81,7 +79,6 @@ export const getChannels = async (req: Request, res: Response) => {
             {
               $limit: 1,
             },
-            // { $project: { message: 1, createdAt: 1, senderId: 1 } },
           ],
         },
       },
@@ -122,7 +119,7 @@ export const getChannelById = async (req: Request, res: Response) => {
           pipeline: [
             {
               $match: {
-                _id: {
+                userId: {
                   $ne: senderId,
                 },
               },
@@ -251,6 +248,8 @@ export const sendMessage = async (req: Request, res: Response) => {
   const receiverSocketId = onlineUsers.get(receiverId.toString());
   if (receiverSocketId) {
     io.to(receiverSocketId).emit('newMessage', {
+      channelId: channel._id.toString(),
+      senderId: senderId.toString(),
       receiverId: receiverId.toString(),
       message: body.message,
       createdAt: new Date().toISOString(),
@@ -258,7 +257,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       deletedAt: null,
       deletedBy: [],
       deleted: false,
-      edited: false
+      edited: false,
     });
   }
 
