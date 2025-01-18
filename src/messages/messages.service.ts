@@ -259,6 +259,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       deleted: false,
       edited: false,
     });
+    io.to(receiverSocketId).emit('onlineUsers', Array.from(onlineUsers.keys()));
   }
 
   return res.json({ message: 'ok' });
@@ -268,11 +269,27 @@ export const editMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as EditMessageInput;
-  await messages.updateOne(
+
+  const result = await messages.updateOne(
     { senderId, _id: messageId },
     { $set: { message: body.message, editedAt: new Date(), edited: true } },
   );
-  return res.json({ message: ' ok' });
+
+  if (result.modifiedCount > 0) {
+    const updatedMessage = await messages.findOne({ _id: messageId });
+    if (updatedMessage) {
+      const receiverSocketId = onlineUsers.get(updatedMessage.receiverId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('messageEdited', {
+          messageId: messageId.toString(),
+          message: body.message,
+          editedAt: updatedMessage.editedAt?.toISOString(),
+          edited: true
+        });
+      }
+    }
+  }
+  return res.json(result);
 };
 
 export const forwardMessage = async (req: Request, res: Response) => {

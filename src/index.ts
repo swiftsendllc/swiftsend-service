@@ -32,7 +32,7 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
 
-export const onlineUsers: Map<string, string> = new Map();
+export const onlineUsers= new Map<string, string>();
 
 app.get('/', (req, res) => {
   res.json({ message: 'OK' });
@@ -58,7 +58,7 @@ io.on('connection', (socket) => {
     if (deleteUserId) {
       onlineUsers.delete(deleteUserId);
     }
-    io.emit('getOnlineUsers', Array.from(onlineUsers.keys()));
+    io.emit('onlineUsers', Array.from(onlineUsers.keys()));
   });
 });
 
