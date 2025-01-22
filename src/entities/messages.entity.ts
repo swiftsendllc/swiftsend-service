@@ -6,10 +6,9 @@ export interface MessagesEntity {
   channelId: ObjectId;
   message: string;
   imageURL: string | null;
-  createdAt: Date;
+  createdAt: Date | null;
   deletedAt: Date | null;
   editedAt: Date| null;
-  deletedBy: ObjectId[];
   deleted: boolean
   edited: boolean
 }

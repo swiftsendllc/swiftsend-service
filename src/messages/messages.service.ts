@@ -5,7 +5,6 @@ import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
-import { DeleteMessageInput } from './dto/delete-message.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
 import { MessageInput } from './dto/send-message.dto';
 
@@ -87,7 +86,6 @@ export const getChannels = async (req: Request, res: Response) => {
           path: '$lastMessage',
         },
       },
-
       {
         $match: {
           'receiver.userId': { $ne: senderId },
@@ -160,7 +158,7 @@ export const getChannelById = async (req: Request, res: Response) => {
     .toArray();
 
   if (!channel) {
-    return res.status(404).json({ message: 'NotFound' });
+    return res.status(404).json({ message: 'Channel is not found!' });
   }
 
   return res.json(channel);
@@ -168,13 +166,11 @@ export const getChannelById = async (req: Request, res: Response) => {
 
 export const getChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
-  const userId = new ObjectId(req.user!.userId);
   const channelMessages = await messages
     .aggregate([
       {
         $match: {
           channelId,
-          deletedBy: { $ne: userId }, //Excludes messages for the current user
         },
       },
       {
@@ -240,7 +236,6 @@ export const sendMessage = async (req: Request, res: Response) => {
     createdAt: new Date(),
     deletedAt: null,
     editedAt: null,
-    deletedBy: [],
     deleted: false,
     edited: false,
   });
@@ -255,7 +250,6 @@ export const sendMessage = async (req: Request, res: Response) => {
       createdAt: new Date().toISOString(),
       imageURL: body.imageURL ?? null,
       deletedAt: null,
-      deletedBy: [],
       deleted: false,
       edited: false,
     });
@@ -284,7 +278,7 @@ export const editMessage = async (req: Request, res: Response) => {
           messageId: messageId.toString(),
           message: body.message,
           editedAt: updatedMessage.editedAt?.toISOString(),
-          edited: true
+          edited: true,
         });
       }
     }
@@ -311,7 +305,6 @@ export const forwardMessage = async (req: Request, res: Response) => {
     createdAt: new Date(),
     editedAt: new Date(),
     deletedAt: new Date(),
-    deletedBy: [],
     deleted: false,
     edited: false,
   });
@@ -320,13 +313,31 @@ export const forwardMessage = async (req: Request, res: Response) => {
 
 export const deleteMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
-  const senderId = new ObjectId(req.user!.userId);
-  const body = req.body as DeleteMessageInput;
-  const ifDeleted = body.deleted;
-  if (ifDeleted) {
-    await messages.updateOne({ senderId, _id: messageId }, { $set: { deleted: true, deletedAt: new Date() } });
-  } else {
-    await messages.updateOne({ senderId, _id: messageId }, { $addToSet: { deletedBy: senderId } });
+  const userId = new ObjectId(req.user!.userId);
+  const message = await messages.findOne({ _id: messageId });
+  if (!message) {
+    return res.status(404).json({ error: 'Message not found!' });
   }
-  return res.json({ message: ' ok' });
+  if (message.senderId.toString() !== userId.toString()) {
+    return res.status(403).json({ error: 'Not authorized to delete the message!' });
+  }
+  const result = await messages.updateOne({ _id: messageId }, { $set: {  deleted: true, deletedAt: new Date() } });
+  if (result.modifiedCount > 0) {
+    const receiverSocketId = onlineUsers.get(message.receiverId.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('messageDeleted', {
+        deleted: true,
+        deletedAt: new Date().toISOString(),
+        messageId: messageId.toString(),
+      });
+    }
+    io.to(userId.toString()).emit("messageDeleted", {
+      deleted: true,
+      deletedAt: new Date().toISOString(),
+      messageId: messageId.toString()
+    })
+    return res.status(200).json({ message: 'Message deleted successfully' });
+  } else {
+    return res.status(500).json({ error: 'Failed to delete message!' });
+  }
 };

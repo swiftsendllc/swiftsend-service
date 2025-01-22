@@ -4,6 +4,8 @@ config();
 import cors from 'cors';
 import express from 'express';
 
+import { instrument } from '@socket.io/admin-ui';
+import bcrypt from 'bcrypt';
 import http from 'http';
 import morgan from 'morgan';
 import { Server } from 'socket.io';
@@ -16,10 +18,21 @@ import usersRouter from './users/users.controller';
 
 const app = express();
 const server = http.createServer(app);
+const hashedPassword = bcrypt.hashSync(process.env.SOCKET_ADMIN_PASSWORD!, 10);
 export const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
+    origin: "*",
+    methods:["GET", "POST"],
+    // credentials: true,
+
+  },
+});
+
+instrument(io, {
+  auth: {
+    type: 'basic',
+    username:process.env.SOCKET_ADMIN_USERNAME!,
+    password: hashedPassword,
   },
 });
 declare module 'express' {
@@ -32,15 +45,15 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
 
-export const onlineUsers= new Map<string, string>();
+export const onlineUsers = new Map<string, string>();
 
 app.get('/', (req, res) => {
-  res.json({ message: 'OK' });
+  res.json({ message: "OK" });
 });
 
 app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter);
 
-io.on('connection', (socket) => {
+io.on('connection', socket => {
   console.log(`User connected: ${socket.id}`);
 
   const userId = socket.handshake.query.userId as string;
