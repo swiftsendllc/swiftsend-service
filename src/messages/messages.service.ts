@@ -34,7 +34,7 @@ export const createChannel = async (req: Request, res: Response) => {
 
 export const getChannels = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
-  const messageChannels = await channels
+  const channelMessages = await channels
     .aggregate([
       {
         $match: {
@@ -64,6 +64,13 @@ export const getChannels = async (req: Request, res: Response) => {
         },
       },
       {
+        $match: {
+          'receiver.userId': {
+            $ne: senderId,
+          },
+        },
+      },
+      {
         $lookup: {
           from: Collections.MESSAGES,
           localField: '_id',
@@ -72,7 +79,7 @@ export const getChannels = async (req: Request, res: Response) => {
           pipeline: [
             {
               $sort: {
-                _id: -1,
+                createdAt: -1,
               },
             },
             {
@@ -87,14 +94,13 @@ export const getChannels = async (req: Request, res: Response) => {
         },
       },
       {
-        $match: {
-          'receiver.userId': { $ne: senderId },
+        $sort: {
+          'lastMessage.createdAt': -1,
         },
       },
     ])
     .toArray();
-
-  return res.json(messageChannels);
+  return res.json(channelMessages);
 };
 
 export const getChannelById = async (req: Request, res: Response) => {
@@ -195,10 +201,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
 export const deleteChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
-  await messages.updateMany(
-    { senderId, channelId },
-    { $addToSet: { deletedBy: senderId } }, // Adds senderId to the deletedBy if not already present
-  );
+  await messages.deleteMany({ senderId, channelId });
   return res.json({ message: 'ok' });
 };
 
@@ -224,13 +227,13 @@ export const sendMessage = async (req: Request, res: Response) => {
   if (!receiverId) {
     return res.status(400).json({ message: 'There is no receiverId' });
   }
-  if(!body.message || body.message.trim() === ""){
-    return res.status(400).json({error:"Message can't be empty!"})
+  if (!body.message || body.message.trim() === '') {
+    return res.status(400).json({ error: "Message can't be empty!" });
   }
 
   const channel = await getOrCreateChannel(senderId, receiverId);
 
-  const {insertedId} = await messages.insertOne({
+  const { insertedId } = await messages.insertOne({
     channelId: channel._id,
     message: body.message,
     imageURL: body.imageURL ?? null,
@@ -256,8 +259,8 @@ export const sendMessage = async (req: Request, res: Response) => {
       deleted: false,
       edited: false,
       editedAt: null,
-      _id: insertedId
-    } satisfies WithId<MessagesEntity>);
+      _id: insertedId,
+    } as WithId<MessagesEntity>);
     io.to(receiverSocketId).emit('onlineUsers', Array.from(onlineUsers.keys()));
   }
 
@@ -326,7 +329,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
   if (message.senderId.toString() !== userId.toString()) {
     return res.status(403).json({ error: 'Not authorized to delete the message!' });
   }
-  const result = await messages.updateOne({ _id: messageId }, { $set: {  deleted: true, deletedAt: new Date() } });
+  const result = await messages.updateOne({ _id: messageId }, { $set: { deleted: true, deletedAt: new Date() } });
   if (result.modifiedCount > 0) {
     const receiverSocketId = onlineUsers.get(message.receiverId.toString());
     if (receiverSocketId) {
@@ -336,11 +339,6 @@ export const deleteMessage = async (req: Request, res: Response) => {
         messageId: messageId.toString(),
       });
     }
-    io.to(userId.toString()).emit("messageDeleted", {
-      deleted: true,
-      deletedAt: new Date().toISOString(),
-      messageId: messageId.toString()
-    })
     return res.status(200).json({ message: 'Message deleted successfully' });
   } else {
     return res.status(500).json({ error: 'Failed to delete message!' });
