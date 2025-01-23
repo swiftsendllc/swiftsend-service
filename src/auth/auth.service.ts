@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
@@ -23,7 +23,7 @@ export const login = async (req: Request, res: Response) => {
     const user = await users.findOne({ email });
     if (!user) return res.status(401).json({});
 
-    const isCorrect = await bcrypt.compare(body.password, user.password);
+    const isCorrect = await bcryptjs.compare(body.password, user.password);
     if (!isCorrect) return res.status(401).json({});
 
     const userId = user._id.toString();
@@ -46,7 +46,7 @@ export const signup = async (req: Request, res: Response) => {
     const user = await users.findOne({ email });
     if (user) return res.status(400).json({ message: 'Email already exists' });
 
-    const password = await bcrypt.hash(body.password, saltRounds);
+    const password = await bcryptjs.hash(body.password, saltRounds);
 
     const username = `${body.fullName
       .toLowerCase()
