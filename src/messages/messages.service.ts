@@ -224,10 +224,13 @@ export const sendMessage = async (req: Request, res: Response) => {
   if (!receiverId) {
     return res.status(400).json({ message: 'There is no receiverId' });
   }
+  if(!body.message || body.message.trim() === ""){
+    return res.status(400).json({error:"Message can't be empty!"})
+  }
 
   const channel = await getOrCreateChannel(senderId, receiverId);
 
-  await messages.insertOne({
+  const {insertedId} = await messages.insertOne({
     channelId: channel._id,
     message: body.message,
     imageURL: body.imageURL ?? null,
@@ -243,16 +246,18 @@ export const sendMessage = async (req: Request, res: Response) => {
   const receiverSocketId = onlineUsers.get(receiverId.toString());
   if (receiverSocketId) {
     io.to(receiverSocketId).emit('newMessage', {
-      channelId: channel._id.toString(),
-      senderId: senderId.toString(),
-      receiverId: receiverId.toString(),
+      channelId: channel._id,
+      senderId: senderId,
+      receiverId: receiverId,
       message: body.message,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(),
       imageURL: body.imageURL ?? null,
       deletedAt: null,
       deleted: false,
       edited: false,
-    });
+      editedAt: null,
+      _id: insertedId
+    } satisfies WithId<MessagesEntity>);
     io.to(receiverSocketId).emit('onlineUsers', Array.from(onlineUsers.keys()));
   }
 

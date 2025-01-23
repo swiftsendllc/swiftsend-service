@@ -16,7 +16,6 @@ import usersRouter from './users/users.controller';
 
 const app = express();
 const server = http.createServer(app);
-console.log(process.env.SOCKET_ADMIN_PASSWORD);
 export const io = new Server(server, {
   cors: {
     origin: '*',
