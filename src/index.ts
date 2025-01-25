@@ -42,7 +42,6 @@ app.get('/', (req, res) => {
 app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter);
 
 io.on('connection', socket => {
-  console.log(`User connected: ${socket.id}`);
 
   const userId = socket.handshake.query.userId as string;
   if (userId) {
@@ -52,7 +51,6 @@ io.on('connection', socket => {
   }
 
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
 
     const deleteUserId = Array.from(onlineUsers.entries()).find(([, socketId]) => socketId === socket.id)?.[0];
 

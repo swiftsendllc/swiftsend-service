@@ -100,14 +100,26 @@ export const getChannels = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  return res.json(channelMessages);
+
+  const data = channelMessages.map((channel) => {
+    const isOnline = onlineUsers.has(channel.receiver.userId.toString());
+    return {
+      ...channel,
+      receiver: {
+        ...channel.receiver,
+        isOnline,
+      },
+    };
+  });
+  return res.json(data);
+  // return res.json(channelMessages)
 };
 
 export const getChannelById = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
 
-  const [channel] = await channels
+  const [singleChannel] = await channels
     .aggregate([
       {
         $match: {
@@ -163,11 +175,14 @@ export const getChannelById = async (req: Request, res: Response) => {
     ])
     .toArray();
 
-  if (!channel) {
+  if (!singleChannel) {
     return res.status(404).json({ message: 'Channel is not found!' });
   }
 
-  return res.json(channel);
+  return res.json({
+    ...singleChannel,
+    receiver: { ...singleChannel.receiver, isOnline: onlineUsers.has(singleChannel.receiver.userId.toString()) },
+  });
 };
 
 export const getChannelMessages = async (req: Request, res: Response) => {
@@ -329,7 +344,10 @@ export const deleteMessage = async (req: Request, res: Response) => {
   if (message.senderId.toString() !== userId.toString()) {
     return res.status(403).json({ error: 'Not authorized to delete the message!' });
   }
-  const result = await messages.updateOne({ _id: messageId }, { $set: { deleted: true, deletedAt: new Date() } });
+  const result = await messages.updateOne(
+    { _id: messageId },
+    { $set: { deleted: true, deletedAt: new Date(), message: '' } },
+  );
   if (result.modifiedCount > 0) {
     const receiverSocketId = onlineUsers.get(message.receiverId.toString());
     if (receiverSocketId) {
@@ -337,6 +355,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
         deleted: true,
         deletedAt: new Date().toISOString(),
         messageId: messageId.toString(),
+        message: '',
       });
     }
     return res.status(200).json({ message: 'Message deleted successfully' });
