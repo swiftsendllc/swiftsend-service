@@ -108,6 +108,7 @@ export const getChannels = async (req: Request, res: Response) => {
       receiver: {
         ...channel.receiver,
         isOnline,
+        lastSeen: new Date()
       },
     };
   });
@@ -116,9 +117,11 @@ export const getChannels = async (req: Request, res: Response) => {
 };
 
 export const getChannelById = async (req: Request, res: Response) => {
-  const channelId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: 'Channel not found!' });
+  }
+  const channelId = new ObjectId(req.params.id)
   const senderId = new ObjectId(req.user!.userId);
-
   const [singleChannel] = await channels
     .aggregate([
       {
@@ -181,11 +184,14 @@ export const getChannelById = async (req: Request, res: Response) => {
 
   return res.json({
     ...singleChannel,
-    receiver: { ...singleChannel.receiver, isOnline: onlineUsers.has(singleChannel.receiver.userId.toString()) },
+    receiver: { ...singleChannel.receiver, isOnline: onlineUsers.has(singleChannel.receiver.userId.toString()), lastSeen: new Date() },
   });
 };
 
 export const getChannelMessages = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.channelId)) {
+    return res.status(404).json({ error: 'The channel is not found!' });
+  }
   const channelId = new ObjectId(req.params.channelId);
   const channelMessages = await messages
     .aggregate([
@@ -209,7 +215,6 @@ export const getChannelMessages = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-
   return res.json(channelMessages);
 };
 

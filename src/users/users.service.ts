@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
+import { io, onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
@@ -34,8 +35,9 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
     followedUserId: userProfile?.userId,
   });
   const following = !!isFollowing;
+  const isOnline = onlineUsers.has(userProfile.toString());
 
-  return res.json({ ...userProfile, following });
+  return res.json({ ...userProfile, following,isOnline, lastSeen: new Date() });
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {
@@ -68,8 +70,12 @@ export const getUserProfiles = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-
-  return res.json(result);
+    const augmentedResult = result.map((user) => {
+      const isOnline = onlineUsers.has(user.userId.toString());
+      const lastSeen = new Date();
+      return { ...user, isOnline, lastSeen };
+    });
+  return res.json(augmentedResult);
 };
 
 export const updateUserProfile = async (req: Request, res: Response) => {
@@ -196,6 +202,14 @@ export const followProfile = async (req: Request, res: Response) => {
   await updateFollowerCount(followedUserId, 1);
   await updateFollowingCount(followingUserId, 1);
 
+  const followedSocketId = onlineUsers.get(followedUserId.toString());
+  if (followedSocketId) {
+    io.to(followedSocketId).emit('followed', {
+      followingUserId: followingUserId.toString(),
+      followedUserId: followedUserId.toString(),
+    });
+  }
+
   return res.json({ message: 'ok' });
 };
 
@@ -208,6 +222,14 @@ export const unFollowProfile = async (req: Request, res: Response) => {
 
   await updateFollowerCount(followedUserId, -1);
   await updateFollowingCount(followingUserId, -1);
+
+  const followedSocketId = onlineUsers.get(followedUserId.toString());
+  if (followedSocketId) {
+    io.to(followedSocketId).emit('unFollowed', {
+      followingUserId: followingUserId.toString(),
+      followedUserId: followedUserId.toString(),
+    });
+  }
 
   return res.json({ message: 'ok' });
 };
