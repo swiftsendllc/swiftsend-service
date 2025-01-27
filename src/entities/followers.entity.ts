@@ -3,6 +3,6 @@ import { ObjectId } from 'mongodb';
 export interface FollowersEntity {
   followingUserId: ObjectId;
   followedUserId: ObjectId;
-  createdAt: Date;
+  createdAt: Date | null;
   deletedAt: Date | null;
 }

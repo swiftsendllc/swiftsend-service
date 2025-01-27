@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
-import { io, onlineUsers } from '..';
+import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
@@ -30,14 +30,27 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
 
   const userProfile = await userProfiles.findOne(where);
   if (!userProfile) return res.status(404).json({ message: 'User not found' });
-  const isFollowing = await followers.findOne({
-    followingUserId: new ObjectId(req.user!.userId),
-    followedUserId: userProfile?.userId,
-  });
-  const following = !!isFollowing;
-  const isOnline = onlineUsers.has(userProfile.toString());
 
-  return res.json({ ...userProfile, following,isOnline, lastSeen: new Date() });
+  const loggedInUserId = new ObjectId(req.user!.userId);
+
+  const [isFollowedByMe, isFollowing] = await Promise.all([
+    followers.findOne({
+      followingUserId: loggedInUserId,
+      followedUserId: userProfile.userId,
+    }),
+    followers.findOne({
+      followingUserId: loggedInUserId,
+      followedUserId: userProfile.userId,
+    }),
+  ]);
+
+  return res.json({
+    ...userProfile,
+    isFollowedByMe: !!isFollowedByMe,
+    isFollowing: !!isFollowing,
+    isOnline: onlineUsers.has(userProfile.userId.toString()),
+    lastSeen: new Date(),
+  });
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {
@@ -70,11 +83,11 @@ export const getUserProfiles = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-    const augmentedResult = result.map((user) => {
-      const isOnline = onlineUsers.has(user.userId.toString());
-      const lastSeen = new Date();
-      return { ...user, isOnline, lastSeen };
-    });
+  const augmentedResult = result.map((user) => {
+    const isOnline = onlineUsers.has(user.userId.toString());
+    const lastSeen = new Date();
+    return { ...user, isOnline, lastSeen };
+  });
   return res.json(augmentedResult);
 };
 
@@ -121,7 +134,6 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 
 export const getFollowing = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.params.userId);
-
   const following = await followers
     .aggregate([
       {
@@ -140,17 +152,31 @@ export const getFollowing = async (req: Request, res: Response) => {
       {
         $unwind: {
           path: '$user',
-        },
-      },
-      {
-        $replaceRoot: {
-          newRoot: '$user',
+          preserveNullAndEmptyArrays: true,
         },
       },
     ])
     .toArray();
+  const data = await Promise.all(
+    following.map(async (user) => {
+      const loggedInUserId = new ObjectId(req.user!.userId);
+      const isFollowing = await followers.findOne({
+        followingUserId: user.user.userId,
+        followedUserId: loggedInUserId,
+      });
+      return {
+        ...user,
+        user: {
+          ...user.user,
+          isFollowing: !!isFollowing,
+          isFollowedByMe: true,
+          isOnline: onlineUsers.has(user.user.userId.toString()),
+        },
+      };
+    }),
+  );
 
-  return res.json(following);
+  return res.json(data);
 };
 
 export const getFollowers = async (req: Request, res: Response) => {
@@ -173,23 +199,36 @@ export const getFollowers = async (req: Request, res: Response) => {
       {
         $unwind: {
           path: '$user',
-        },
-      },
-      {
-        $replaceRoot: {
-          newRoot: '$user',
+          preserveNullAndEmptyArrays: true,
         },
       },
     ])
     .toArray();
+  const data = await Promise.all(
+    follower.map(async (user) => {
+      const loggedInUserId = new ObjectId(req.user!.userId);
+      const isFollowedByMe = await followers.findOne({
+        followingUserId: loggedInUserId,
+        followedUserId: user.user.userId,
+      });
+      return {
+        ...user,
+        user: {
+          ...user.user,
+          isFollowing: true,
+          isFollowedByMe: !!isFollowedByMe,
+          isOnline: onlineUsers.has(user.user.userId.toString()),
+        },
+      };
+    }),
+  );
 
-  return res.json(follower);
+  return res.json(data);
 };
 
 export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
-  console.log(followingUserId, followedUserId);
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow  yourself!" });
   }
@@ -197,39 +236,33 @@ export const followProfile = async (req: Request, res: Response) => {
   const isFollowed = await followers.findOne({ followingUserId, followedUserId });
   if (isFollowed) return res.json({ message: 'ok' });
 
-  await followers.insertOne({ followingUserId, followedUserId, createdAt: new Date(), deletedAt: null });
+  await followers.insertOne({
+    followingUserId,
+    followedUserId,
+    createdAt: new Date(),
+    deletedAt: null,
+  });
 
   await updateFollowerCount(followedUserId, 1);
   await updateFollowingCount(followingUserId, 1);
 
-  const followedSocketId = onlineUsers.get(followedUserId.toString());
-  if (followedSocketId) {
-    io.to(followedSocketId).emit('followed', {
-      followingUserId: followingUserId.toString(),
-      followedUserId: followedUserId.toString(),
-    });
-  }
-
-  return res.json({ message: 'ok' });
+  return res.json({ message: 'Followed successfully' });
 };
 
 export const unFollowProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  const { deletedCount } = await followers.deleteOne({ followingUserId, followedUserId });
-  if (!deletedCount) return res.json({ message: 'ok' });
+  const { deletedCount } = await followers.deleteOne({
+    followingUserId,
+    followedUserId,
+  });
+  const isFollowed = await followers.findOne({ followingUserId, followedUserId });
+  if (isFollowed) return res.status(200).json({ message: 'User is followed' });
+  if (!deletedCount) return res.status(400).json({ message: 'Nothing to unFollow!' });
 
   await updateFollowerCount(followedUserId, -1);
   await updateFollowingCount(followingUserId, -1);
-
-  const followedSocketId = onlineUsers.get(followedUserId.toString());
-  if (followedSocketId) {
-    io.to(followedSocketId).emit('unFollowed', {
-      followingUserId: followingUserId.toString(),
-      followedUserId: followedUserId.toString(),
-    });
-  }
 
   return res.json({ message: 'ok' });
 };

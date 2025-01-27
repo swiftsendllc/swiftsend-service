@@ -3,7 +3,7 @@ import { Collections } from '../util/constants';
 
 const client = new MongoClient(process.env.MONGODB_URL!);
 
-export const db = client.db('practiceClone');
+export const db = client.db('instagram');
 
 (async () => {
   db.collection(Collections.USERS).createIndex(

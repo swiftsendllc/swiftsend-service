@@ -105,7 +105,6 @@ export const getCreatorPosts = async (req: Request, res: Response) => {
   const creatorId = new ObjectId(req.params.userId);
 
   const result = await getPostsByUserId(creatorId, userId);
-  console.log(result);
   return res.json(result);
 };
 
@@ -238,7 +237,6 @@ export const getPost = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
   const body = req.body as CreatePostInput;
-  console.log(body);
   const userId = new ObjectId(req.user!.userId);
   await posts.insertOne({
     caption: body.caption,
@@ -506,7 +504,7 @@ export const getLikes = async (req: Request, res: Response) => {
 };
 
 export const timeline = async (req: Request, res: Response) => {
-  const followingUserId = new ObjectId(req.user!.userId);
+  const userId = new ObjectId(req.user!.userId);
   const result = await posts
     .aggregate([
       {
@@ -517,7 +515,7 @@ export const timeline = async (req: Request, res: Response) => {
           as: '_likes',
           pipeline: [
             {
-              $match: { userId: new ObjectId(req.user!.userId) },
+              $match: { userId: userId },
             },
             {
               $limit: 1,
@@ -533,7 +531,7 @@ export const timeline = async (req: Request, res: Response) => {
           as: '_saves',
           pipeline: [
             {
-              $match: { userId: new ObjectId(req.user!.userId) },
+              $match: { userId: userId },
             },
             {
               $limit: 1,
@@ -544,17 +542,24 @@ export const timeline = async (req: Request, res: Response) => {
       {
         $lookup: {
           from: Collections.FOLLOWERS,
-          localField: 'userId',
-          foreignField: 'followedUserId',
-          as: '_following',
+          let: { postUserId: '$userId' },
           pipeline: [
             {
-              $match: { followingUserId },
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$followingUserId', userId] },
+                    { $eq: ['$followedUserId', '$$postUserId'] },
+                    { $eq: ['$deletedAt', null] },
+                  ],
+                },
+              },
             },
             {
               $limit: 1,
             },
           ],
+          as: '_following',
         },
       },
       {
@@ -576,7 +581,7 @@ export const timeline = async (req: Request, res: Response) => {
           isSaved: {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
           },
-          IsFollowing: {
+          isFollowing: {
             $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
           },
         },

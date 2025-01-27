@@ -40,7 +40,6 @@ export const getCreatorReels = async (req: Request, res: Response) => {
 
 export const createReel = async (req: Request, res: Response) => {
   const body = req.body as CreateReelsInput;
-  console.log(body)
   const userId = new ObjectId(req.user!.userId);
   await reels.insertOne({
     caption: body.caption,
@@ -58,7 +57,6 @@ export const createReel = async (req: Request, res: Response) => {
 
 export const editReel = async (req: Request, res: Response) => {
   const body = req.body as UpdateReelInput;
-  console.log(body);
   const reelsId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
   await reels.updateOne({ userId, _id: reelsId }, { $set: { caption: body.caption } });

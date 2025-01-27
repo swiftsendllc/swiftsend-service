@@ -39,7 +39,6 @@ export const login = async (req: Request, res: Response) => {
 export const signup = async (req: Request, res: Response) => {
   try {
     const body = req.body as SignUpInput;
-    console.log(body);
 
     const email = body.email.toLowerCase().trim();
 
