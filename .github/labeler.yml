@@ -1,0 +1,34 @@
+# Automatically label issues and pull requests based on file changes
+
+# Label for API changes
+api:
+  - 'src/*.service.ts/'
+
+# Label for configuration changes
+variables:
+  - '.github/**'
+  - '.env/**'
+  - '*.yml'
+  - '*.yaml'
+  - "migrate.ts"
+  - ".vscode/**"
+
+# Label for CI/CD changes
+ci-cd:
+  - '.github/workflows/**'
+  - 'scripts/ci/**'
+
+# Label for documentation changes
+documentation:
+  - 'docs/**'
+  - '*.md'
+  - "package.json/**"
+  - "README.md/**"
+
+# Label for bugs
+router:
+ - "app/*.controller.ts/"
+
+# Label for styles
+entity:
+  - 'src/entities/**'
