@@ -1,8 +1,12 @@
 {
+  "name": "instagram",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
     "build": "tsc",
     "dev": "npx nodemon src/index.ts --watch",
-    "start": "node dist/src/index.js"
+    "start": "node dist/src/index.js",
+    "release":"git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",

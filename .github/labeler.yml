@@ -2,7 +2,7 @@
 
 # Label for API changes
 api:
-  - 'src/*.service.ts/'
+  - 'src/*.service.ts'
 
 # Label for configuration changes
 variables:
@@ -27,7 +27,7 @@ documentation:
 
 # Label for bugs
 router:
- - "app/*.controller.ts/"
+  - "app/*.controller.ts"
 
 # Label for styles
 entity:
