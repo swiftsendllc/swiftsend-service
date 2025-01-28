@@ -1,0 +1,33 @@
+# Automatically label issues and pull requests based on file changes
+
+# Label for API changes
+api:
+  - 'app/hooks/**'
+
+# Label for configuration changes
+variables:
+  - '.github/**'
+  - '.env/**'
+  - '*.yml'
+  - '*.yaml'
+
+# Label for CI/CD changes
+ci-cd:
+  - '.github/workflows/**'
+  - 'scripts/ci/**'
+
+# Label for documentation changes
+documentation:
+  - 'docs/**'
+  - '*.md'
+  - "package.json/**"
+  - "README.md/**"
+
+# Label for bugs
+bugs:
+ - "app/**"
+
+# Label for styles
+styles:
+  - 'src/frontend/styles/**'
+  - 'public/styles/**'

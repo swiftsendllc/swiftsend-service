@@ -1,0 +1,25 @@
+name: Release Workflow
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Push to Prod Branch
+        run: |
+          git push origin --delete deploy || true
+          git checkout -b deploy
+          git push origin deploy
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
