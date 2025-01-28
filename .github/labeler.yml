@@ -2,7 +2,7 @@
 
 # Label for API changes
 api:
-  - 'app/hooks/**'
+  - 'src/*.service.ts'
 
 # Label for configuration changes
 variables:
@@ -10,6 +10,8 @@ variables:
   - '.env/**'
   - '*.yml'
   - '*.yaml'
+  - "migrate.ts"
+  - ".vscode/**"
 
 # Label for CI/CD changes
 ci-cd:
@@ -24,10 +26,9 @@ documentation:
   - "README.md/**"
 
 # Label for bugs
-bugs:
- - "app/**"
+router:
+  - "app/*.controller.ts"
 
 # Label for styles
-styles:
-  - 'src/frontend/styles/**'
-  - 'public/styles/**'
+entity:
+  - 'src/entities/**'
