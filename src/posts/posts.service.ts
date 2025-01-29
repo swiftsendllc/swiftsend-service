@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
+import { onlineUsers } from '..';
 import { CommentsEntity } from '../entities/comments.entity';
 import { LikesEntity } from '../entities/likes.entity';
 import { PostsEntity } from '../entities/posts.entity';
@@ -231,8 +232,22 @@ export const getPost = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
+  const data = {
+    ...result,
+    comments: result.comments.map((comment: any) => ({
+      ...comment,
+      user: {
+        ...comment.user,
+        isOnline: onlineUsers.has(comment.user.userId.toString()),
+      },
+    })),
+    user: {
+      ...result.user,
+      isOnline: onlineUsers.has(result.user.userId.toString()),
+    },
+  };
 
-  return res.json(result);
+  return res.json(data);
 };
 
 export const createPost = async (req: Request, res: Response) => {
@@ -598,6 +613,17 @@ export const timeline = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-
-  return res.json(result);
+  const data = await Promise.all(
+    result.map(async (user) => {
+      const isOnline = onlineUsers.has(user.user.userId.toString());
+      return {
+        ...user,
+        user: {
+          ...user.user,
+          isOnline: !!isOnline,
+        },
+      };
+    }),
+  );
+  return res.json(data);
 };

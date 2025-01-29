@@ -83,12 +83,7 @@ export const getUserProfiles = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  const augmentedResult = result.map((user) => {
-    const isOnline = onlineUsers.has(user.userId.toString());
-    const lastSeen = new Date();
-    return { ...user, isOnline, lastSeen };
-  });
-  return res.json(augmentedResult);
+  return res.json(result);
 };
 
 export const updateUserProfile = async (req: Request, res: Response) => {
