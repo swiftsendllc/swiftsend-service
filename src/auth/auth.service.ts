@@ -2,6 +2,7 @@ import bcryptjs from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import { onlineUsers } from '..';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
