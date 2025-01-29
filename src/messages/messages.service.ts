@@ -102,13 +102,13 @@ export const getChannels = async (req: Request, res: Response) => {
     .toArray();
 
   const data = channelMessages.map((channel) => {
-    const isOnline = onlineUsers.has(channel.receiver.userId.toString());
+    const receiverData = onlineUsers.get(channel.receiver.userId.toString());
     return {
       ...channel,
       receiver: {
         ...channel.receiver,
-        isOnline,
-        lastSeen: new Date()
+        isOnline: !!receiverData,
+        lastSeen: receiverData?.lastActive,
       },
     };
   });
@@ -120,7 +120,7 @@ export const getChannelById = async (req: Request, res: Response) => {
   if (!ObjectId.isValid(req.params.id)) {
     return res.status(404).json({ error: 'Channel not found!' });
   }
-  const channelId = new ObjectId(req.params.id)
+  const channelId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);
   const [singleChannel] = await channels
     .aggregate([
@@ -182,9 +182,14 @@ export const getChannelById = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'Channel is not found!' });
   }
 
+  const receiverData = onlineUsers.get(singleChannel.receiver.userId.toString())
   return res.json({
     ...singleChannel,
-    receiver: { ...singleChannel.receiver, isOnline: onlineUsers.has(singleChannel.receiver.userId.toString()), lastSeen: new Date() },
+    receiver: {
+      ...singleChannel.receiver,
+      isOnline: !!receiverData,
+      lastSeen: receiverData?.lastActive ,
+    },
   });
 };
 
@@ -205,12 +210,12 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           from: Collections.USER_PROFILES,
           localField: 'receiverId',
           foreignField: 'userId',
-          as: 'receiver',
+          as: 'user',
         },
       },
       {
         $unwind: {
-          path: '$receiver',
+          path: '$user',
         },
       },
     ])
@@ -266,8 +271,9 @@ export const sendMessage = async (req: Request, res: Response) => {
     edited: false,
   });
 
-  const receiverSocketId = onlineUsers.get(receiverId.toString());
-  if (receiverSocketId) {
+  const receiverData = onlineUsers.get(receiverId.toString());
+  if (receiverData) {
+    const receiverSocketId = receiverData.socketId;
     io.to(receiverSocketId).emit('newMessage', {
       channelId: channel._id,
       senderId: senderId,
@@ -300,8 +306,9 @@ export const editMessage = async (req: Request, res: Response) => {
   if (result.modifiedCount > 0) {
     const updatedMessage = await messages.findOne({ _id: messageId });
     if (updatedMessage) {
-      const receiverSocketId = onlineUsers.get(updatedMessage.receiverId.toString());
-      if (receiverSocketId) {
+      const receiverData = onlineUsers.get(updatedMessage.receiverId.toString());
+      if (receiverData) {
+        const receiverSocketId = receiverData.socketId;
         io.to(receiverSocketId).emit('messageEdited', {
           messageId: messageId.toString(),
           message: body.message,
@@ -354,8 +361,9 @@ export const deleteMessage = async (req: Request, res: Response) => {
     { $set: { deleted: true, deletedAt: new Date(), message: '' } },
   );
   if (result.modifiedCount > 0) {
-    const receiverSocketId = onlineUsers.get(message.receiverId.toString());
-    if (receiverSocketId) {
+    const receiverData = onlineUsers.get(message.receiverId.toString());
+    if (receiverData) {
+      const receiverSocketId = receiverData.socketId
       io.to(receiverSocketId).emit('messageDeleted', {
         deleted: true,
         deletedAt: new Date().toISOString(),

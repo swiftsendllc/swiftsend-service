@@ -33,7 +33,7 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
 
-export const onlineUsers = new Map<string, string>();
+export const onlineUsers = new Map<string, {socketId: string, lastActive: Date}>();
 
 app.get('/', (req, res) => {
   res.json({ message: 'OK' });
@@ -45,18 +45,13 @@ io.on('connection', socket => {
 
   const userId = socket.handshake.query.userId as string;
   if (userId) {
-    onlineUsers.set(userId, socket.id);
+    onlineUsers.set(userId, {socketId:socket.id, lastActive: new Date()});
 
     io.emit('onlineUsers', Array.from(onlineUsers.keys()));
   }
 
   socket.on('disconnect', () => {
-
-    const deleteUserId = Array.from(onlineUsers.entries()).find(([, socketId]) => socketId === socket.id)?.[0];
-
-    if (deleteUserId) {
-      onlineUsers.delete(deleteUserId);
-    }
+      onlineUsers.delete(userId);
     io.emit('onlineUsers', Array.from(onlineUsers.keys()));
   });
 });
