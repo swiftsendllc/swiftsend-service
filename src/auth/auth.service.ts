@@ -81,6 +81,7 @@ export const signup = async (req: Request, res: Response) => {
       pronouns: '',
       updatedAt: currentTime,
       createdAt: currentTime,
+      lastSeen: currentTime
     });
 
     const userId = _id.toString();

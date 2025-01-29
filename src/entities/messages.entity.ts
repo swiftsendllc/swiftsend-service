@@ -8,7 +8,9 @@ export interface MessagesEntity {
   imageURL: string | null;
   createdAt: Date | null;
   deletedAt: Date | null;
-  editedAt: Date| null;
-  deleted: boolean
-  edited: boolean
+  editedAt: Date | null;
+  deleted: boolean;
+  edited: boolean;
+  delivered: boolean;
+  seen: boolean;
 }

@@ -10,6 +10,8 @@ import {
   getChannelById,
   getChannelMessages,
   getChannels,
+  messageDelivered,
+  messageSeen,
   sendMessage,
 } from './messages.service';
 
@@ -21,7 +23,7 @@ router.post('/channels/create/:userId', auth, createChannel);
 
 router.delete('/channels/messages/delete/:channelId', auth, deleteChannelMessages);
 
-router.delete("/channels/:id/delete", auth, deleteChannel )
+router.delete('/channels/:id/delete', auth, deleteChannel);
 
 router.get('/channels/:id', auth, getChannelById);
 
@@ -35,5 +37,8 @@ router.delete('/messages/:id/:deleted/delete', auth, deleteMessage);
 
 router.post('/messages/:id/:receiverId/forward', auth, forwardMessage);
 
+router.put('/messages/seen/:id', auth, messageSeen);
+
+router.put('/messages/delivered/:id', auth, messageDelivered);
 
 export default router;

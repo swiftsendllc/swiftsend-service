@@ -22,4 +22,5 @@ export interface UserProfilesEntity {
 
   createdAt: Date;
   updatedAt: Date;
+  lastSeen: Date;
 }
