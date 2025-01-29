@@ -43,13 +43,13 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
       followedUserId: userProfile.userId,
     }),
   ]);
-
+ const receiverData = onlineUsers.get(userProfile.userId.toString())
   return res.json({
     ...userProfile,
     isFollowedByMe: !!isFollowedByMe,
     isFollowing: !!isFollowing,
-    isOnline: onlineUsers.has(userProfile.userId.toString()),
-    lastSeen: new Date(),
+    isOnline: !!receiverData,
+    lastSeen: receiverData?.lastActive || new Date(),
   });
 };
 
@@ -159,13 +159,14 @@ export const getFollowing = async (req: Request, res: Response) => {
         followingUserId: user.user.userId,
         followedUserId: loggedInUserId,
       });
+      const receiverData =onlineUsers.get(user.user.userId.toString())
       return {
         ...user,
         user: {
           ...user.user,
           isFollowing: !!isFollowing,
           isFollowedByMe: true,
-          isOnline: onlineUsers.has(user.user.userId.toString()),
+          isOnline: !!receiverData,
         },
       };
     }),
@@ -206,13 +207,14 @@ export const getFollowers = async (req: Request, res: Response) => {
         followingUserId: loggedInUserId,
         followedUserId: user.user.userId,
       });
+      const receiverData = onlineUsers.get(user.user.userId.toString())
       return {
         ...user,
         user: {
           ...user.user,
           isFollowing: true,
           isFollowedByMe: !!isFollowedByMe,
-          isOnline: onlineUsers.has(user.user.userId.toString()),
+          isOnline: !!receiverData ,
         },
       };
     }),
