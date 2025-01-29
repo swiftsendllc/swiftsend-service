@@ -3,6 +3,7 @@ import { ObjectId, WithId } from 'mongodb';
 import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
+import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { EditMessageInput } from './dto/edit-message.dto';
@@ -10,6 +11,7 @@ import { MessageInput } from './dto/send-message.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
+const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -102,13 +104,13 @@ export const getChannels = async (req: Request, res: Response) => {
     .toArray();
 
   const data = channelMessages.map((channel) => {
-    const receiverData = onlineUsers.get(channel.receiver.userId.toString());
+    const receiverSocketData = onlineUsers.get(channel.receiver.userId.toString());
     return {
       ...channel,
       receiver: {
         ...channel.receiver,
-        isOnline: !!receiverData,
-        lastSeen: receiverData?.lastActive,
+        isOnline: !!receiverSocketData,
+        lastSeen: receiverSocketData?.lastActive,
       },
     };
   });
@@ -182,13 +184,13 @@ export const getChannelById = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'Channel is not found!' });
   }
 
-  const receiverData = onlineUsers.get(singleChannel.receiver.userId.toString())
+  const receiverSocketData = onlineUsers.get(singleChannel.receiver.userId.toString());
   return res.json({
     ...singleChannel,
     receiver: {
       ...singleChannel.receiver,
-      isOnline: !!receiverData,
-      lastSeen: receiverData?.lastActive ,
+      isOnline: !!receiverSocketData,
+      lastSeen: receiverSocketData?.lastActive,
     },
   });
 };
@@ -269,11 +271,13 @@ export const sendMessage = async (req: Request, res: Response) => {
     editedAt: null,
     deleted: false,
     edited: false,
+    delivered: false,
+    seen: false,
   });
 
-  const receiverData = onlineUsers.get(receiverId.toString());
-  if (receiverData) {
-    const receiverSocketId = receiverData.socketId;
+  const receiverSocketData = onlineUsers.get(receiverId.toString());
+  if (receiverSocketData) {
+    const receiverSocketId = receiverSocketData.socketId;
     io.to(receiverSocketId).emit('newMessage', {
       channelId: channel._id,
       senderId: senderId,
@@ -285,9 +289,15 @@ export const sendMessage = async (req: Request, res: Response) => {
       deleted: false,
       edited: false,
       editedAt: null,
+      delivered: true,
       _id: insertedId,
     } as WithId<MessagesEntity>);
-    io.to(receiverSocketId).emit('onlineUsers', Array.from(onlineUsers.keys()));
+
+    await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
+    io.to(receiverSocketId).emit('messageDelivered', {
+      messageId: insertedId,
+      delivered: true,
+    });
   }
 
   return res.json({ message: 'ok' });
@@ -306,9 +316,9 @@ export const editMessage = async (req: Request, res: Response) => {
   if (result.modifiedCount > 0) {
     const updatedMessage = await messages.findOne({ _id: messageId });
     if (updatedMessage) {
-      const receiverData = onlineUsers.get(updatedMessage.receiverId.toString());
-      if (receiverData) {
-        const receiverSocketId = receiverData.socketId;
+      const receiverSocketData = onlineUsers.get(updatedMessage.receiverId.toString());
+      if (receiverSocketData) {
+        const receiverSocketId = receiverSocketData.socketId;
         io.to(receiverSocketId).emit('messageEdited', {
           messageId: messageId.toString(),
           message: body.message,
@@ -342,6 +352,8 @@ export const forwardMessage = async (req: Request, res: Response) => {
     deletedAt: new Date(),
     deleted: false,
     edited: false,
+    seen: false,
+    delivered: false,
   });
   return res.json({ message: 'Message successfully forwarded' });
 };
@@ -361,9 +373,9 @@ export const deleteMessage = async (req: Request, res: Response) => {
     { $set: { deleted: true, deletedAt: new Date(), message: '' } },
   );
   if (result.modifiedCount > 0) {
-    const receiverData = onlineUsers.get(message.receiverId.toString());
-    if (receiverData) {
-      const receiverSocketId = receiverData.socketId
+    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
+    if (receiverSocketData) {
+      const receiverSocketId = receiverSocketData.socketId;
       io.to(receiverSocketId).emit('messageDeleted', {
         deleted: true,
         deletedAt: new Date().toISOString(),
@@ -375,4 +387,60 @@ export const deleteMessage = async (req: Request, res: Response) => {
   } else {
     return res.status(500).json({ error: 'Failed to delete message!' });
   }
+};
+
+export const messageSeen = async (req: Request, res: Response) => {
+  const messageId = new ObjectId(req.params.id);
+  const userId = new ObjectId(req.user!.userId);
+
+  const message = await messages.findOne({ _id: messageId });
+  if (!message) {
+    return res.status(400).json({ message: 'Message not found!' });
+  }
+  if (message.receiverId.toString() === userId.toString()) {
+    return res.status(200).json({ message: 'Not authorized!' });
+  }
+
+  const result = await messages.updateOne({ _id: messageId }, { $set: { seen: true } });
+
+  if (result.modifiedCount > 0) {
+    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
+    if (receiverSocketData) {
+      const receiverSocketId = receiverSocketData.socketId;
+      io.to(receiverSocketId).emit('messageSeen', {
+        messageId: messageId,
+        seen: true,
+      });
+    }
+  }
+
+  return res.status(200).json({ message: 'Message marked as seen' });
+};
+
+export const messageDelivered = async (req: Request, res: Response) => {
+  const messageId = new ObjectId(req.params.id);
+  const userId = new ObjectId(req.user!.userId);
+
+  const message = await messages.findOne({ _id: messageId });
+  if (!message) {
+    return res.status(404).json({ message: 'Message not found!' });
+  }
+  if (message.senderId.toString() === userId.toString()) {
+    return res.status(404).json({ message: 'Not authorized!' });
+  }
+
+  const result = await messages.updateOne({ _id: messageId }, { $set: { delivered: true } });
+
+  if (result.modifiedCount > 0) {
+    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
+    if (receiverSocketData) {
+      const receiverSocketId = receiverSocketData.socketId;
+      io.to(receiverSocketId).emit('messageDelivered', {
+        messageId: messageId,
+        delivered: true,
+      });
+    }
+  }
+
+  return res.status(200).json({ message: 'Message marked as delivered' });
 };
