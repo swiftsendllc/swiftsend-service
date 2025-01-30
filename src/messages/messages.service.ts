@@ -3,7 +3,6 @@ import { ObjectId, WithId } from 'mongodb';
 import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
-import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { EditMessageInput } from './dto/edit-message.dto';
@@ -11,7 +10,6 @@ import { MessageInput } from './dto/send-message.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
-const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });

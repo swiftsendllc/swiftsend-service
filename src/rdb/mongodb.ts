@@ -1,7 +1,7 @@
 import { MongoClient } from 'mongodb';
-import { Collections } from '../util/constants';
+import { Collections, ENV } from '../util/constants';
 
-const client = new MongoClient(process.env.MONGODB_URL!);
+const client = new MongoClient(ENV("MONGODB_URL")!);
 
 export const db = client.db('instagram');
 
