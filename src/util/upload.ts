@@ -1,16 +1,17 @@
 import * as AWS from '@aws-sdk/client-s3';
+import { ENV } from './constants';
 
 const s3 = new AWS.S3({
   region: 'auto',
-  endpoint: process.env.AWS_S3_ENDPOINT!,
+  endpoint: ENV("AWS_S3_ENDPOINT")!,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    accessKeyId: ENV("AWS_ACCESS_KEY_ID")!,
+    secretAccessKey: ENV("AWS_SECRET_ACCESS_KEY")!,
   },
 });
 
-const bucketUrl = process.env.AWS_BUCKET_URL!;
-const bucketName = process.env.AWS_BUCKET_NAME!;
+const bucketUrl = ENV("AWS_BUCKET_URL")!;
+const bucketName = ENV("AWS_BUCKET_NAME")!;
 
 export async function uploadFile(input: {
   path: string;
