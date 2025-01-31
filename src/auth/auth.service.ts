@@ -2,7 +2,6 @@ import bcryptjs from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
-import { onlineUsers } from '..';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
@@ -81,7 +80,7 @@ export const signup = async (req: Request, res: Response) => {
       pronouns: '',
       updatedAt: currentTime,
       createdAt: currentTime,
-      lastSeen: currentTime
+      lastSeen: currentTime,
     });
 
     const userId = _id.toString();
