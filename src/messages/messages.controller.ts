@@ -27,7 +27,7 @@ router.delete('/channels/:id/delete', auth, deleteChannel);
 
 router.get('/channels/:id', auth, getChannelById);
 
-router.get('/channels/:channelId/messages', auth, getChannelMessages);
+router.get('/channels/:channelId/messages/', auth, getChannelMessages);
 
 router.post('/messages', auth, sendMessage);
 

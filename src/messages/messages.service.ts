@@ -198,6 +198,10 @@ export const getChannelMessages = async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'The channel is not found!' });
   }
   const channelId = new ObjectId(req.params.channelId);
+
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = (parseInt(req.query.offset as string) || 0);
+
   const channelMessages = await messages
     .aggregate([
       {
@@ -218,9 +222,22 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           path: '$user',
         },
       },
+      {
+        $sort: { createdAt: -1 },
+      },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: limit,
+      },
+      {
+        $sort: { createdAt: 1 },
+      },
     ])
     .toArray();
   return res.json(channelMessages);
+
 };
 
 export const deleteChannelMessages = async (req: Request, res: Response) => {
