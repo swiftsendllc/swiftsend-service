@@ -200,7 +200,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
 
   const limit = parseInt(req.query.limit as string) || 20;
-  const offset = (parseInt(req.query.offset as string) || 0);
+  const offset = parseInt(req.query.offset as string) || 0;
 
   const channelMessages = await messages
     .aggregate([
@@ -231,13 +231,9 @@ export const getChannelMessages = async (req: Request, res: Response) => {
       {
         $limit: limit,
       },
-      {
-        $sort: { createdAt: 1 },
-      },
     ])
     .toArray();
   return res.json(channelMessages);
-
 };
 
 export const deleteChannelMessages = async (req: Request, res: Response) => {
@@ -264,13 +260,13 @@ export const sendMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
   if (senderId.toString() === receiverId.toString()) {
-    return res.status(400).json({ message: "You can't message yourself" });
+    return res.status(400).json({ message: "YOU CAN'T MESSAGE YOURSELF!" });
   }
   if (!receiverId) {
-    return res.status(400).json({ message: 'There is no receiverId' });
+    return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
   }
   if (!body.message || body.message.trim() === '') {
-    return res.status(400).json({ error: "Message can't be empty!" });
+    return res.status(400).json({ error: "MESSAGE CAN'T BE EMPTY!" });
   }
 
   const channel = await getOrCreateChannel(senderId, receiverId);
@@ -290,23 +286,25 @@ export const sendMessage = async (req: Request, res: Response) => {
     seen: false,
   });
 
+	const newMessage = {
+		channelId: channel._id,
+		senderId: senderId,
+		receiverId: receiverId,
+		message: body.message,
+		createdAt: new Date(),
+		imageURL: body.imageURL ?? null,
+		deletedAt: null,
+		deleted: false,
+		edited: false,
+		editedAt: null,
+		delivered: true,
+		_id: insertedId,
+	} as WithId<MessagesEntity>
+
   const receiverSocketData = onlineUsers.get(receiverId.toString());
   if (receiverSocketData) {
     const receiverSocketId = receiverSocketData.socketId;
-    io.to(receiverSocketId).emit('newMessage', {
-      channelId: channel._id,
-      senderId: senderId,
-      receiverId: receiverId,
-      message: body.message,
-      createdAt: new Date(),
-      imageURL: body.imageURL ?? null,
-      deletedAt: null,
-      deleted: false,
-      edited: false,
-      editedAt: null,
-      delivered: true,
-      _id: insertedId,
-    } as WithId<MessagesEntity>);
+    io.to(receiverSocketId).emit('newMessage', newMessage);
 
     await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
     io.to(receiverSocketId).emit('messageDelivered', {
@@ -315,7 +313,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     });
   }
 
-  return res.json({ message: 'ok' });
+  return res.json(newMessage);
 };
 
 export const editMessage = async (req: Request, res: Response) => {
