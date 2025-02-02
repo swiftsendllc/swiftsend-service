@@ -5,6 +5,7 @@ import { ChannelsEntity } from '../entities/channels.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
+import { DeleteMessagesInput } from './dto/delete-messages.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
 import { MessageInput } from './dto/send-message.dto';
 
@@ -236,11 +237,51 @@ export const getChannelMessages = async (req: Request, res: Response) => {
   return res.json(channelMessages);
 };
 
-export const deleteChannelMessages = async (req: Request, res: Response) => {
-  const channelId = new ObjectId(req.params.channelId);
-  const senderId = new ObjectId(req.user!.userId);
-  await messages.deleteMany({ senderId, channelId });
-  return res.json({ message: 'ok' });
+export const deleteMessages = async (req: Request, res: Response) => {
+  try {
+    const body = req.body as DeleteMessagesInput;
+    const validMessageIds = body.messageIds.filter((id) => ObjectId.isValid(id));
+
+    if (validMessageIds.length === 0) {
+      return res.status(400).json({ error: "MESSAGE IDS CAN'T BE EMPTY!" });
+    }
+
+    const messageIds = validMessageIds.map((id: string) => new ObjectId(id));
+    const userId = new ObjectId(req.user!.userId);
+    console.log(messageIds);
+
+    const result = await messages.updateMany(
+      { senderId: userId, _id: { $in: messageIds } },
+      { $set: { deletedAt: new Date(), deleted: true } },
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(200).json({ error: 'NO MESSAGES FOUND TO DELETE!' });
+    }
+    if (result.modifiedCount > 0) {
+      const message = await messages.findOne({ _id: { $in: messageIds } });
+      if (message) {
+        const receiverSocketData = onlineUsers.get(message?.receiverId.toString());
+        const receiverSocketId = receiverSocketData?.socketId;
+        if (receiverSocketId)
+          io.to(receiverSocketId).emit('bulkDelete', {
+            messageIds: messageIds,
+            deleted: true,
+            deletedAt: new Date(),
+          });
+      }
+    }
+
+    const deletedResult = await messages.deleteMany({ senderId: userId, _id: { $in: messageIds } });
+    if (deletedResult.deletedCount === 0) {
+      return res.status(404).json({ error: 'NO MESSAGES FOUND TO DELETE PERMANENTLY' });
+    }
+
+    return res.json({ message: 'MESSAGES DELETED SUCCESSFULLY' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'INTERNAL SERVER ERROR' });
+  }
 };
 
 export const deleteChannel = async (req: Request, res: Response) => {
@@ -265,9 +306,6 @@ export const sendMessage = async (req: Request, res: Response) => {
   if (!receiverId) {
     return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
   }
-  if (!body.message || body.message.trim() === '') {
-    return res.status(400).json({ error: "MESSAGE CAN'T BE EMPTY!" });
-  }
 
   const channel = await getOrCreateChannel(senderId, receiverId);
 
@@ -286,20 +324,20 @@ export const sendMessage = async (req: Request, res: Response) => {
     seen: false,
   });
 
-	const newMessage = {
-		channelId: channel._id,
-		senderId: senderId,
-		receiverId: receiverId,
-		message: body.message,
-		createdAt: new Date(),
-		imageURL: body.imageURL ?? null,
-		deletedAt: null,
-		deleted: false,
-		edited: false,
-		editedAt: null,
-		delivered: true,
-		_id: insertedId,
-	} as WithId<MessagesEntity>
+  const newMessage = {
+    channelId: channel._id,
+    senderId: senderId,
+    receiverId: receiverId,
+    message: body.message,
+    createdAt: new Date(),
+    imageURL: body.imageURL ?? null,
+    deletedAt: null,
+    deleted: false,
+    edited: false,
+    editedAt: null,
+    delivered: true,
+    _id: insertedId,
+  } as WithId<MessagesEntity>;
 
   const receiverSocketData = onlineUsers.get(receiverId.toString());
   if (receiverSocketData) {
@@ -368,7 +406,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     seen: false,
     delivered: false,
   });
-  return res.json({ message: 'Message successfully forwarded' });
+  return res.json({ message: 'MESSAGE DELETED forwarded' });
 };
 
 export const deleteMessage = async (req: Request, res: Response) => {
@@ -376,15 +414,16 @@ export const deleteMessage = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const message = await messages.findOne({ _id: messageId });
   if (!message) {
-    return res.status(404).json({ error: 'Message not found!' });
+    return res.status(404).json({ error: 'MESSAGE NOT FOUND!' });
   }
   if (message.senderId.toString() !== userId.toString()) {
-    return res.status(403).json({ error: 'Not authorized to delete the message!' });
+    return res.status(403).json({ error: 'NOT AUTHORIZED TO DELETE THE MESSAGE!' });
   }
   const result = await messages.updateOne(
-    { _id: messageId },
-    { $set: { deleted: true, deletedAt: new Date(), message: '' } },
+    { _id: messageId, senderId: userId },
+    { $set: { deleted: true, deletedAt: new Date(), message: '', imageURL: '' } },
   );
+  await messages.deleteOne({senderId: userId, _id: messageId})
   if (result.modifiedCount > 0) {
     const receiverSocketData = onlineUsers.get(message.receiverId.toString());
     if (receiverSocketData) {
@@ -393,6 +432,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
         deleted: true,
         deletedAt: new Date().toISOString(),
         messageId: messageId.toString(),
+        imageURL: '',
         message: '',
       });
     }
