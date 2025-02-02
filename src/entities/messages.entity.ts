@@ -4,7 +4,7 @@ export interface MessagesEntity {
   senderId: ObjectId;
   receiverId: ObjectId;
   channelId: ObjectId;
-  message: string;
+  message: string | null;
   imageURL: string | null;
   createdAt: Date | null;
   deletedAt: Date | null;

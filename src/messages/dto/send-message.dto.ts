@@ -2,6 +2,6 @@ import { ObjectId } from 'mongodb';
 
 export interface MessageInput {
   receiverId: ObjectId;
-  message: string;
+  message: string | null;
   imageURL: string | null;
 }

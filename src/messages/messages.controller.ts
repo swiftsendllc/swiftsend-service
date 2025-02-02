@@ -3,7 +3,7 @@ import { auth } from '../auth/middleware';
 import {
   createChannel,
   deleteChannel,
-  deleteChannelMessages,
+  deleteMessages,
   deleteMessage,
   editMessage,
   forwardMessage,
@@ -21,13 +21,13 @@ router.get('/channels', auth, getChannels);
 
 router.post('/channels/create/:userId', auth, createChannel);
 
-router.delete('/channels/messages/delete/:channelId', auth, deleteChannelMessages);
+router.delete('/channels/messages/delete', auth, deleteMessages);
 
 router.delete('/channels/:id/delete', auth, deleteChannel);
 
 router.get('/channels/:id', auth, getChannelById);
 
-router.get('/channels/:channelId/messages/', auth, getChannelMessages);
+router.get('/channels/:channelId/messages', auth, getChannelMessages);
 
 router.post('/messages', auth, sendMessage);
 
