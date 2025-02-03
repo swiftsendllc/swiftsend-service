@@ -237,6 +237,23 @@ export const getChannelMessages = async (req: Request, res: Response) => {
   return res.json(channelMessages);
 };
 
+export const getChannelMedia = async (req: Request, res: Response) => {
+  const channelId = new ObjectId(req.params.channelId);
+  const media = await messages
+    .aggregate([
+      {
+        $match: { channelId, imageURL: { $ne: null } },
+      },
+
+      {
+        $project: { imageURL: 1 },
+      },
+    ])
+    .toArray();
+
+  return res.status(200).json(media);
+};
+
 export const deleteMessages = async (req: Request, res: Response) => {
   try {
     const body = req.body as DeleteMessagesInput;
@@ -423,7 +440,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
     { _id: messageId, senderId: userId },
     { $set: { deleted: true, deletedAt: new Date(), message: '', imageURL: '' } },
   );
-  await messages.deleteOne({senderId: userId, _id: messageId})
+  await messages.deleteOne({ senderId: userId, _id: messageId });
   if (result.modifiedCount > 0) {
     const receiverSocketData = onlineUsers.get(message.receiverId.toString());
     if (receiverSocketData) {

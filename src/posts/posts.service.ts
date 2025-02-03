@@ -520,6 +520,8 @@ export const getLikes = async (req: Request, res: Response) => {
 
 export const timeline = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
+  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = parseInt(req.query.limit as string) || 10;
   const result = await posts
     .aggregate([
       {
@@ -608,8 +610,14 @@ export const timeline = async (req: Request, res: Response) => {
       },
       {
         $sort: {
-          _id: -1,
+          createdAt: -1,
         },
+      },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: limit,
       },
     ])
     .toArray();
