@@ -4,6 +4,7 @@ import {
   createChannel,
   deleteChannel,
   deleteMessage,
+  deleteMessageReactions,
   deleteMessages,
   editMessage,
   forwardMessage,
@@ -11,9 +12,8 @@ import {
   getChannelMedia,
   getChannelMessages,
   getChannels,
-  messageDelivered,
-  messageSeen,
   sendMessage,
+  sendMessageReactions,
 } from './messages.service';
 
 const router = Router();
@@ -34,14 +34,14 @@ router.get('/channels/:channelId/media', auth, getChannelMedia);
 
 router.post('/messages', auth, sendMessage);
 
+router.post('/messages/reactions', auth, sendMessageReactions);
+
+router.delete('/messages/reactions/:reactionId/delete', auth, deleteMessageReactions);
+
 router.patch('/messages/:id/edit', auth, editMessage);
 
 router.delete('/messages/:id/:deleted/delete', auth, deleteMessage);
 
 router.post('/messages/:id/:receiverId/forward', auth, forwardMessage);
-
-router.put('/messages/seen/:id', auth, messageSeen);
-
-router.put('/messages/delivered/:id', auth, messageDelivered);
 
 export default router;
