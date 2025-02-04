@@ -44,9 +44,9 @@ app.get('/', (req, res) => {
   res.json({ message: 'OK' });
 });
 
-app.get("/debug" , () => {
-  throw new Error("This is a test error")
-})
+app.get('/debug', () => {
+  throw new Error('This is a test error');
+});
 
 app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter);
 
@@ -54,6 +54,11 @@ io.on('connection', (socket) => {
   const userId = socket.handshake.query.userId as string;
   if (userId) {
     onlineUsers.set(userId, { socketId: socket.id, lastActive: new Date() });
+
+    socket.on('join', (room: string) => {
+      socket.join(room);
+      console.log(`Socket ${socket.id} joined room ${room}`);
+    });
 
     io.emit('onlineUsers', Array.from(onlineUsers.keys()));
   }
@@ -64,7 +69,6 @@ io.on('connection', (socket) => {
   });
   socket.on('error', (error) => {
     console.error('Socket error:', error);
-    Sentry.captureException(error);
   });
 });
 

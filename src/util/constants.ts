@@ -29,7 +29,7 @@ export const Env = {
   SOCKET_ADMIN_USERNAME: process.env.SOCKET_ADMIN_USERNAME || '',
   SOCKET_ADMIN_PASSWORD: process.env.SOCKET_ADMIN_PASSWORD || '',
 
-  SENTRY_DSN: process.env.SEN_TRY_DSN || '', // TURN OFF THE SENTRY WHILE USING DEV MODE
+  SENTRY_DSN: process.env.SENTRY_DSN || '', // TURN OFF THE SENTRY WHILE USING DEV MODE
   NODE_ENV: process.env.NODE_ENV || '',
   SERVICE_NAME: process.env.SERVICE_NAME || '',
   GIT_SHA: process.env.GIT_SHA || '',

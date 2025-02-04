@@ -278,14 +278,12 @@ export const deleteMessages = async (req: Request, res: Response) => {
     if (result.modifiedCount > 0) {
       const message = await messages.findOne({ _id: { $in: messageIds } });
       if (message) {
-        const receiverSocketData = onlineUsers.get(message?.receiverId.toString());
-        const receiverSocketId = receiverSocketData?.socketId;
-        if (receiverSocketId)
-          io.to(receiverSocketId).emit('bulkDelete', {
-            messageIds: messageIds,
-            deleted: true,
-            deletedAt: new Date(),
-          });
+        const receiverSocketId = message.receiverId.toString();
+        io.to(receiverSocketId).emit('bulkDelete', {
+          messageIds: messageIds,
+          deleted: true,
+          deletedAt: new Date(),
+        });
       }
     }
 
@@ -356,18 +354,14 @@ export const sendMessage = async (req: Request, res: Response) => {
     _id: insertedId,
   } as WithId<MessagesEntity>;
 
-  const receiverSocketData = onlineUsers.get(receiverId.toString());
-  if (receiverSocketData) {
-    const receiverSocketId = receiverSocketData.socketId;
-    io.to(receiverSocketId).emit('newMessage', newMessage);
-
-    await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
-    io.to(receiverSocketId).emit('messageDelivered', {
-      messageId: insertedId,
-      delivered: true,
-    });
-  }
-
+  io.to(receiverId.toString()).emit('newMessage', newMessage);
+  console.log('newMessage', newMessage);
+  await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
+  const receiverSocketId = receiverId.toString();
+  io.to(receiverSocketId).emit('messageDelivered', {
+    messageId: insertedId,
+    delivered: true,
+  });
   return res.json(newMessage);
 };
 
@@ -384,16 +378,13 @@ export const editMessage = async (req: Request, res: Response) => {
   if (result.modifiedCount > 0) {
     const updatedMessage = await messages.findOne({ _id: messageId });
     if (updatedMessage) {
-      const receiverSocketData = onlineUsers.get(updatedMessage.receiverId.toString());
-      if (receiverSocketData) {
-        const receiverSocketId = receiverSocketData.socketId;
-        io.to(receiverSocketId).emit('messageEdited', {
-          messageId: messageId.toString(),
-          message: body.message,
-          editedAt: updatedMessage.editedAt?.toISOString(),
-          edited: true,
-        });
-      }
+      const receiverSocketId = updatedMessage.receiverId.toString();
+      io.to(receiverSocketId).emit('messageEdited', {
+        messageId: messageId.toString(),
+        message: body.message,
+        editedAt: updatedMessage.editedAt?.toISOString(),
+        edited: true,
+      });
     }
   }
   return res.json(result);
@@ -442,17 +433,14 @@ export const deleteMessage = async (req: Request, res: Response) => {
   );
   await messages.deleteOne({ senderId: userId, _id: messageId });
   if (result.modifiedCount > 0) {
-    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
-    if (receiverSocketData) {
-      const receiverSocketId = receiverSocketData.socketId;
-      io.to(receiverSocketId).emit('messageDeleted', {
-        deleted: true,
-        deletedAt: new Date().toISOString(),
-        messageId: messageId.toString(),
-        imageURL: '',
-        message: '',
-      });
-    }
+    const receiverSocketId = message.receiverId.toString();
+    io.to(receiverSocketId).emit('messageDeleted', {
+      deleted: true,
+      deletedAt: new Date().toISOString(),
+      messageId: messageId.toString(),
+      imageURL: '',
+      message: '',
+    });
     return res.status(200).json({ message: 'Message deleted successfully' });
   } else {
     return res.status(500).json({ error: 'Failed to delete message!' });
@@ -474,14 +462,11 @@ export const messageSeen = async (req: Request, res: Response) => {
   const result = await messages.updateOne({ _id: messageId }, { $set: { seen: true } });
 
   if (result.modifiedCount > 0) {
-    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
-    if (receiverSocketData) {
-      const receiverSocketId = receiverSocketData.socketId;
-      io.to(receiverSocketId).emit('messageSeen', {
-        messageId: messageId,
-        seen: true,
-      });
-    }
+    const receiverSocketId = message.receiverId.toString();
+    io.to(receiverSocketId).emit('messageSeen', {
+      messageId: messageId,
+      seen: true,
+    });
   }
 
   return res.status(200).json({ message: 'Message marked as seen' });
@@ -502,14 +487,11 @@ export const messageDelivered = async (req: Request, res: Response) => {
   const result = await messages.updateOne({ _id: messageId }, { $set: { delivered: true } });
 
   if (result.modifiedCount > 0) {
-    const receiverSocketData = onlineUsers.get(message.receiverId.toString());
-    if (receiverSocketData) {
-      const receiverSocketId = receiverSocketData.socketId;
-      io.to(receiverSocketId).emit('messageDelivered', {
-        messageId: messageId,
-        delivered: true,
-      });
-    }
+    const receiverSocketId = message.receiverId.toString();
+    io.to(receiverSocketId).emit('messageDelivered', {
+      messageId: messageId,
+      delivered: true,
+    });
   }
 
   return res.status(200).json({ message: 'Message marked as delivered' });
