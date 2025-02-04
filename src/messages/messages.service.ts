@@ -2,15 +2,20 @@ import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
 import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
+import { MessageReactionsEntity } from '../entities/message-reactions.entity';
 import { MessagesEntity } from '../entities/messages.entity';
+import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { DeleteMessagesInput } from './dto/delete-messages.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
+import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
+const message_reactions = db.collection<MessageReactionsEntity>(Collections.MESSAGE_REACTIONS);
+const user_profiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -114,7 +119,6 @@ export const getChannels = async (req: Request, res: Response) => {
     };
   });
   return res.json(data);
-  // return res.json(channelMessages)
 };
 
 export const getChannelById = async (req: Request, res: Response) => {
@@ -221,6 +225,14 @@ export const getChannelMessages = async (req: Request, res: Response) => {
       {
         $unwind: {
           path: '$user',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.MESSAGE_REACTIONS,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: 'reactions',
         },
       },
       {
@@ -341,27 +353,31 @@ export const sendMessage = async (req: Request, res: Response) => {
 
   const newMessage = {
     channelId: channel._id,
-    senderId: senderId,
-    receiverId: receiverId,
     message: body.message,
-    createdAt: new Date(),
     imageURL: body.imageURL ?? null,
+    senderId,
+    receiverId,
+    createdAt: new Date(),
     deletedAt: null,
+    editedAt: null,
     deleted: false,
     edited: false,
-    editedAt: null,
-    delivered: true,
+    delivered: false,
+    seen: false,
     _id: insertedId,
   } as WithId<MessagesEntity>;
 
-  io.to(receiverId.toString()).emit('newMessage', newMessage);
-  console.log('newMessage', newMessage);
-  await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
   const receiverSocketId = receiverId.toString();
-  io.to(receiverSocketId).emit('messageDelivered', {
-    messageId: insertedId,
-    delivered: true,
-  });
+  const receiverRoom = io.sockets.adapter.rooms.get(receiverSocketId);
+  const isReceiverOnline = receiverRoom && receiverRoom.size > 0;
+
+  if (isReceiverOnline) {
+    await messages.updateOne({ _id: insertedId }, { $set: { seen: true } });
+    io.to(receiverSocketId).emit('newMessage', newMessage);
+  } else {
+    await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
+    io.to(receiverSocketId).emit('newMessage', newMessage);
+  }
   return res.json(newMessage);
 };
 
@@ -447,52 +463,21 @@ export const deleteMessage = async (req: Request, res: Response) => {
   }
 };
 
-export const messageSeen = async (req: Request, res: Response) => {
-  const messageId = new ObjectId(req.params.id);
+export const sendMessageReactions = async (req: Request, res: Response) => {
+  const body = req.body as SendMessageReactionsInput;
+  const messageId = new ObjectId(body.messageId);
   const userId = new ObjectId(req.user!.userId);
-
-  const message = await messages.findOne({ _id: messageId });
-  if (!message) {
-    return res.status(400).json({ message: 'Message not found!' });
-  }
-  if (message.receiverId.toString() === userId.toString()) {
-    return res.status(200).json({ message: 'Not authorized!' });
-  }
-
-  const result = await messages.updateOne({ _id: messageId }, { $set: { seen: true } });
-
-  if (result.modifiedCount > 0) {
-    const receiverSocketId = message.receiverId.toString();
-    io.to(receiverSocketId).emit('messageSeen', {
-      messageId: messageId,
-      seen: true,
-    });
-  }
-
-  return res.status(200).json({ message: 'Message marked as seen' });
+  await message_reactions.insertOne({
+    userId: userId,
+    messageId,
+    reaction: body.reaction,
+    createdAt: new Date(),
+  });
+  return res.status(200).json({ message: 'OK' });
 };
 
-export const messageDelivered = async (req: Request, res: Response) => {
-  const messageId = new ObjectId(req.params.id);
-  const userId = new ObjectId(req.user!.userId);
-
-  const message = await messages.findOne({ _id: messageId });
-  if (!message) {
-    return res.status(404).json({ message: 'Message not found!' });
-  }
-  if (message.senderId.toString() === userId.toString()) {
-    return res.status(404).json({ message: 'Not authorized!' });
-  }
-
-  const result = await messages.updateOne({ _id: messageId }, { $set: { delivered: true } });
-
-  if (result.modifiedCount > 0) {
-    const receiverSocketId = message.receiverId.toString();
-    io.to(receiverSocketId).emit('messageDelivered', {
-      messageId: messageId,
-      delivered: true,
-    });
-  }
-
-  return res.status(200).json({ message: 'Message marked as delivered' });
+export const deleteMessageReactions = async (req: Request, res: Response) => {
+  const reactionId = new ObjectId(req.params.id);
+  await message_reactions.deleteOne({ _id: reactionId });
+  return res.status(200).json({ message: 'OK' });
 };
