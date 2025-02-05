@@ -4,7 +4,6 @@ import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { MessageReactionsEntity } from '../entities/message-reactions.entity';
 import { MessagesEntity } from '../entities/messages.entity';
-import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { DeleteMessagesInput } from './dto/delete-messages.dto';
@@ -15,7 +14,6 @@ import { MessageInput } from './dto/send-message.dto';
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
 const message_reactions = db.collection<MessageReactionsEntity>(Collections.MESSAGE_REACTIONS);
-const user_profiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -233,6 +231,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           localField: '_id',
           foreignField: 'messageId',
           as: 'reactions',
+          pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }],
         },
       },
       {
@@ -467,17 +466,44 @@ export const sendMessageReactions = async (req: Request, res: Response) => {
   const body = req.body as SendMessageReactionsInput;
   const messageId = new ObjectId(body.messageId);
   const userId = new ObjectId(req.user!.userId);
-  await message_reactions.insertOne({
+
+  if (!messageId) {
+    return res.status(400).json({ error: 'MESSAGE NOT FOUND!' });
+  }
+
+  const { insertedId } = await message_reactions.insertOne({
     userId: userId,
     messageId,
     reaction: body.reaction,
     createdAt: new Date(),
   });
-  return res.status(200).json({ message: 'OK' });
+
+  const reaction = {
+    userId: userId,
+    messageId,
+    reaction: body.reaction,
+    createdAt: new Date(),
+    _id: insertedId,
+  } as WithId<MessageReactionsEntity>;
+
+  const message = await messages.findOne({ _id: messageId });
+  if (message) {
+    const receiverSocketId = message.senderId.toString();
+    if (receiverSocketId) io.to(receiverSocketId).emit('messageReactions', reaction);
+  }
+
+  return res.status(200).json(reaction);
 };
 
 export const deleteMessageReactions = async (req: Request, res: Response) => {
-  const reactionId = new ObjectId(req.params.id);
-  await message_reactions.deleteOne({ _id: reactionId });
-  return res.status(200).json({ message: 'OK' });
+  try {
+    const reactionId = new ObjectId(req.params.reactionId);
+    const userId = new ObjectId(req.user!.userId);
+
+    await message_reactions.deleteOne({ _id: reactionId, userId: userId });
+    return res.status(200).json({ message: 'OK' });
+  } catch (error) {
+    console.error(error);
+    return res.status(400).json({ error: 'INTERNAL SERVER ERROR!' });
+  }
 };
