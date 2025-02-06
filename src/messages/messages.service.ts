@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
 import { io, onlineUsers } from '..';
+import { GroupChannelsEntity } from '../entities/channel-groups.entity';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { MessageReactionsEntity } from '../entities/message-reactions.entity';
 import { MessagesEntity } from '../entities/messages.entity';
@@ -8,12 +9,14 @@ import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { DeleteMessagesInput } from './dto/delete-messages.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
+import { SendGroupMessageInput } from './dto/send-group-message.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
 const message_reactions = db.collection<MessageReactionsEntity>(Collections.MESSAGE_REACTIONS);
+const groupChannels = db.collection<GroupChannelsEntity>(Collections.GROUP_CHANNELS);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -499,6 +502,19 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
   try {
     const reactionId = new ObjectId(req.params.reactionId);
     const userId = new ObjectId(req.user!.userId);
+    const reaction = await message_reactions.findOne({ _id: reactionId });
+    if (reaction) {
+      const messageId = reaction.messageId;
+      const message = await messages.findOne({ _id: messageId });
+      if (message) {
+        const receiverId = message.senderId.toString();
+        if (receiverId)
+          io.to(receiverId).emit('deletedReactions', {
+            reactionId: reactionId,
+            userId: userId,
+          });
+      }
+    }
 
     await message_reactions.deleteOne({ _id: reactionId, userId: userId });
     return res.status(200).json({ message: 'OK' });
@@ -506,4 +522,34 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
     console.error(error);
     return res.status(400).json({ error: 'INTERNAL SERVER ERROR!' });
   }
+};
+
+export const getOrCreateGroupChannel = async (
+  senderId: ObjectId,
+  receiversId: ObjectId[],
+  channelName: string,
+  description: string,
+) => {
+  const groupChannel = await groupChannels.findOne({ participants: { $all: [senderId, receiversId] } });
+  if (groupChannel) return groupChannel;
+
+  const newGroupChannel: WithId<GroupChannelsEntity> = {
+    _id: new ObjectId(),
+    participants: [senderId, receiversId],
+    createdAt: new Date(),
+    channelName: channelName,
+    description: description,
+    senderId: senderId,
+  };
+
+  await groupChannels.insertOne(newGroupChannel);
+  return newGroupChannel;
+};
+
+export const createGroupChannel = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const body = req.body as SendGroupMessageInput;
+  const receiversId = body.receiversId;
+  const groupChannel = await getOrCreateGroupChannel(senderId, receiversId, body.channelName, body.description);
+  return res.status(200).json(groupChannel);
 };
