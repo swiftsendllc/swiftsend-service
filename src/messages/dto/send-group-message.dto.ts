@@ -1,7 +1,4 @@
-import { ObjectId } from "mongodb";
-
-export interface SendGroupMessageInput{
-  receiversId: ObjectId[]
-  channelName: string
-  description: string
+export interface SendGroupMessageInput {
+  message: string | null;
+  imageURL: string | null;
 }

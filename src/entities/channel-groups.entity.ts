@@ -5,5 +5,5 @@ export interface GroupChannelsEntity {
   description: string;
   createdAt: Date;
   senderId: ObjectId;
-  participants: [ObjectId, ObjectId[]];
+  participants: ObjectId[];
 }
