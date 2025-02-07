@@ -3,12 +3,14 @@ import { ObjectId, WithId } from 'mongodb';
 import { io, onlineUsers } from '..';
 import { GroupChannelsEntity } from '../entities/channel-groups.entity';
 import { ChannelsEntity } from '../entities/channels.entity';
+import { GroupMessagesEntity } from '../entities/group-messages.entity';
 import { MessageReactionsEntity } from '../entities/message-reactions.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { DeleteMessagesInput } from './dto/delete-messages.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
+import { GroupChannelCreateInput } from './dto/group-channel-create.dto';
 import { SendGroupMessageInput } from './dto/send-group-message.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
@@ -17,6 +19,7 @@ const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
 const message_reactions = db.collection<MessageReactionsEntity>(Collections.MESSAGE_REACTIONS);
 const groupChannels = db.collection<GroupChannelsEntity>(Collections.GROUP_CHANNELS);
+const groupMessages = db.collection<GroupMessagesEntity>(Collections.GROUP_MESSAGES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -524,32 +527,106 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
   }
 };
 
-export const getOrCreateGroupChannel = async (
-  senderId: ObjectId,
-  receiversId: ObjectId[],
-  channelName: string,
-  description: string,
-) => {
-  const groupChannel = await groupChannels.findOne({ participants: { $all: [senderId, receiversId] } });
-  if (groupChannel) return groupChannel;
-
+export const createGroupChannel = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const body = req.body as GroupChannelCreateInput;
   const newGroupChannel: WithId<GroupChannelsEntity> = {
     _id: new ObjectId(),
-    participants: [senderId, receiversId],
+    participants: [senderId],
     createdAt: new Date(),
-    channelName: channelName,
-    description: description,
+    channelName: body.channelName,
+    description: body.description,
     senderId: senderId,
   };
 
   await groupChannels.insertOne(newGroupChannel);
-  return newGroupChannel;
+  return res.status(200).json(newGroupChannel);
 };
 
-export const createGroupChannel = async (req: Request, res: Response) => {
+export const addMemberToChannelGroup = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  console.log(req.params.receiversId);
+  const receiversId = new ObjectId(req.params.receiversId);
+  const channelId = new ObjectId(req.params.channelId);
+  await groupChannels.updateOne(
+    { _id: channelId, participants: senderId },
+    { $addToSet: { participants: receiversId } },
+  );
+  return res.status(200).json({ message: 'OK' });
+};
+
+export const getGroupChannel = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const groupData = await groupChannels.find({ participants: { $in: [userId] } }).toArray();
+  return res.status(200).json(groupData);
+};
+
+export const sendGroupMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupMessageInput;
-  const receiversId = body.receiversId;
-  const groupChannel = await getOrCreateGroupChannel(senderId, receiversId, body.channelName, body.description);
-  return res.status(200).json(groupChannel);
+  const channelId = new ObjectId(req.params.channelId);
+  const channel = await groupChannels.findOne({ _id: channelId });
+  const receiversId = channel?.participants;
+  if (receiversId)
+    await groupMessages.insertOne({
+      channelId: channelId,
+      senderId: senderId,
+      receiversId: receiversId,
+      message: body.message,
+      imageURL: body.imageURL ?? null,
+      createdAt: new Date(),
+      deletedAt: null,
+      editedAt: null,
+      deleted: false,
+      edited: false,
+    });
+  return res.json({ message: 'OK' });
+};
+
+export const getChannelGroupMessages = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.channelId)) {
+    console.log('error');
+    return res.status(404).json({ error: 'CHANNEL ID NOT FOUND!' });
+  }
+  const channelId = new ObjectId(req.params.channelId);
+  const groupMessagesData = await groupMessages
+    .aggregate([
+      {
+        $match: { channelId },
+      },
+      {
+        $lookup: {
+          from: Collections.GROUP_CHANNELS,
+          localField: 'channelId',
+          foreignField: '_id',
+          as: 'channel',
+        },
+      },
+      {
+        $unwind: {
+          path: '$channel',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'receiversId',
+          foreignField: 'userId',
+          as: 'receivers',
+        },
+      },
+    ])
+    .toArray();
+
+  return res.status(200).json(groupMessagesData);
+};
+
+export const deleteChannelGroupMessage = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const messageId = new ObjectId(req.params.messageId);
+  if(!messageId) {
+    return res.status(404).json({error:"MESSAGE ID NOT FOUND!"})
+  }
+  await groupMessages.deleteOne({ _id: messageId, senderId: senderId });
+  return res.status(200).json({message:"MESSAGE DELETED"})
 };
