@@ -1,4 +1,4 @@
-export interface GroupChannelCreateInput {
+export interface GroupCreateInput {
   channelName: string;
   description: string;
 }
