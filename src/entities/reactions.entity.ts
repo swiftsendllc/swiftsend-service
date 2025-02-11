@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 
-export interface MessageReactionsEntity {
+export interface ReactionsEntity {
   userId: ObjectId;
   messageId: ObjectId;
   reaction: string;

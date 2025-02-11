@@ -10,6 +10,7 @@ import {
   deleteMessage,
   deleteMessageReactions,
   deleteMessages,
+  editGroupMessage,
   editMessage,
   forwardMessage,
   getChannelById,
@@ -19,10 +20,12 @@ import {
   getGroupById,
   getGroupMessages,
   getGroups,
+  kickMemberFromGroup,
   sendGroupMessage,
   sendMessage,
   sendMessageReactions,
   updateGroup,
+  updateMemberToModerator,
 } from './messages.service';
 
 const router = Router();
@@ -41,9 +44,15 @@ router.get('/groups', auth, getGroups);
 
 router.get('/groups/:channelId', auth, getGroupById);
 
-router.put('/groups/add/:channelId/:receiversId', auth, addMemberToGroup);
+router.put('/groups/add/:channelId/:memberId', auth, addMemberToGroup);
+
+router.patch('/groups/kick/:channelId/:memberId', auth, kickMemberFromGroup);
+
+router.put('/groups/update/:channelId/:memberId', auth, updateMemberToModerator);
 
 router.post('/groups/messages/send/:channelId', auth, sendGroupMessage);
+
+router.patch('/groups/messages/edit/:messageId', auth, editGroupMessage);
 
 router.get('/groups/messages/get/:channelId', auth, getGroupMessages);
 
