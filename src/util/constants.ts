@@ -12,9 +12,10 @@ export const Collections = {
   CHANNELS: 'channels',
   REELS: 'reels',
   PROFILES: 'profiles',
-  MESSAGE_REACTIONS: 'message_reactions',
+  REACTIONS: 'reactions',
   GROUPS: 'groups',
   GROUP_MESSAGES: 'group_messages',
+  GROUP_REACTIONS: 'group_reactions',
 } as const;
 
 export const Env = {

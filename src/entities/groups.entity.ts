@@ -5,6 +5,7 @@ export interface GroupsEntity {
   channelName: string;
   description: string;
   createdAt: Date;
-  senderId: ObjectId;
+  admin: ObjectId;
   participants: ObjectId[];
+  moderators: ObjectId[]
 }
