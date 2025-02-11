@@ -13,7 +13,7 @@ export const Collections = {
   REELS: 'reels',
   PROFILES: 'profiles',
   MESSAGE_REACTIONS: 'message_reactions',
-  GROUP_CHANNELS: 'group_channels',
+  GROUPS: 'groups',
   GROUP_MESSAGES: 'group_messages',
 } as const;
 

@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
+import { shake } from 'radash';
 import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { GroupMessagesEntity } from '../entities/group-messages.entity';
 import { GroupsEntity } from '../entities/groups.entity';
 import { MessageReactionsEntity } from '../entities/message-reactions.entity';
 import { MessagesEntity } from '../entities/messages.entity';
+import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
 import { DeleteMessagesInput } from './dto/delete-messages.dto';
@@ -14,13 +16,13 @@ import { GroupCreateInput } from './dto/group-create.dto';
 import { SendGroupMessageInput } from './dto/send-group-message.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
-import { UserProfilesEntity } from '../entities/user-profiles.entity';
+import { UpdateGroupInput } from './dto/update-group.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const channels = db.collection<ChannelsEntity>(Collections.CHANNELS);
-const user_profiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES)
+const user_profiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const message_reactions = db.collection<MessageReactionsEntity>(Collections.MESSAGE_REACTIONS);
-const groupChannels = db.collection<GroupsEntity>(Collections.GROUP_CHANNELS);
+const groups = db.collection<GroupsEntity>(Collections.GROUPS);
 const groupMessages = db.collection<GroupMessagesEntity>(Collections.GROUP_MESSAGES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
@@ -543,8 +545,36 @@ export const createGroup = async (req: Request, res: Response) => {
     senderId: senderId,
   };
 
-  await groupChannels.insertOne(newGroupChannel);
+  await groups.insertOne(newGroupChannel);
   return res.status(200).json(newGroupChannel);
+};
+
+export const updateGroup = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const body = req.body as UpdateGroupInput;
+  console.log(req.params.channelId)
+  const channelId = new ObjectId(req.params.channelId);
+
+  const group = await groups.findOneAndUpdate(
+    { _id:channelId },
+    {
+      $set: shake({
+        channelName: body.channelName,
+        channelAvatar: body.channelAvatar,
+        description: body.description,
+      }),
+    },
+    { returnDocument: 'after' },
+  );
+  const result = { ...group };
+  return res.status(200).json(result);
+};
+
+export const deleteGroup = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const channelId = new ObjectId(req.params.channelId);
+  await groups.deleteOne({ _id: channelId, senderId: senderId });
+  return res.status(200).json({ message: 'OK' });
 };
 
 export const addMemberToGroup = async (req: Request, res: Response) => {
@@ -552,7 +582,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
   console.log(req.params.receiversId);
   const receiversId = new ObjectId(req.params.receiversId);
   const channelId = new ObjectId(req.params.channelId);
-  await groupChannels.updateOne(
+  await groups.updateOne(
     { _id: channelId, participants: senderId },
     { $addToSet: { participants: receiversId } },
   );
@@ -561,7 +591,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
 export const getGroups = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const groupData = await groupChannels
+  const groupData = await groups
     .aggregate([
       {
         $match: { participants: { $in: [userId] } },
@@ -602,7 +632,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupMessageInput;
   const channelId = new ObjectId(req.params.channelId);
-  const channel = await groupChannels.findOne({ _id: channelId });
+  const channel = await groups.findOne({ _id: channelId });
   const receiversId = channel?.participants;
   if (!body.message || body.imageURL) {
     return res.status(400).json({ error: "MESSAGE CAN'T BE EMPTY!" });
@@ -633,11 +663,11 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       edited: false,
       _id: insertedId,
     };
-    const sender = await user_profiles.findOne({userId:senderId})
+    const sender = await user_profiles.findOne({ userId: senderId });
     const receiverSocketId = channel.participants || [];
     const receivers = receiverSocketId.map((id) => id.toString()) as [];
-    io.to(receivers).emit('groupMessage', {...groupMessage, sender});
-    return res.json({...groupMessage, sender});
+    io.to(receivers).emit('groupMessage', { ...groupMessage, sender });
+    return res.json({ ...groupMessage, sender });
   }
 };
 
@@ -654,7 +684,7 @@ export const getGroupMessages = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.GROUP_CHANNELS,
+          from: Collections.GROUPS,
           localField: 'channelId',
           foreignField: '_id',
           as: 'channel',
@@ -692,7 +722,7 @@ export const getGroupMessages = async (req: Request, res: Response) => {
 
 export const getGroupById = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
-  const [group] = await groupChannels
+  const [group] = await groups
     .aggregate([
       {
         $match: { _id: channelId },
