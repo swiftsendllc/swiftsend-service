@@ -11,6 +11,7 @@ export interface MessagesEntity {
   editedAt: Date | null;
   deleted: boolean;
   edited: boolean;
+  replied: boolean;
   delivered: boolean;
   seen: boolean;
 }
