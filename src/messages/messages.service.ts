@@ -8,6 +8,7 @@ import { GroupReactionsEntity } from '../entities/group-reactions.entity';
 import { GroupsEntity } from '../entities/groups.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { ReactionsEntity } from '../entities/reactions.entity';
+import { RepliesEntity } from '../entities/replies.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
@@ -17,8 +18,10 @@ import { EditGroupMessageInput } from './dto/edit-group-message.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
 import { GroupCreateInput } from './dto/group-create.dto';
 import { SendGroupMessageInput } from './dto/send-group-message.dto';
+import { SendGroupReactionInput } from './dto/send-group-reaction.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
+import { SendReplyInput } from './dto/send-reply.dto';
 import { UpdateGroupInput } from './dto/update-group.dto';
 
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
@@ -28,6 +31,7 @@ const message_reactions = db.collection<ReactionsEntity>(Collections.REACTIONS);
 const groups = db.collection<GroupsEntity>(Collections.GROUPS);
 const groupMessages = db.collection<GroupMessagesEntity>(Collections.GROUP_MESSAGES);
 const groupReactions = db.collection<GroupReactionsEntity>(Collections.GROUP_REACTIONS);
+const replies = db.collection<RepliesEntity>(Collections.REPLIES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -43,7 +47,7 @@ const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
 
 export const createChannel = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
-  const receiverId = new ObjectId(req.params.userId);
+  const receiverId = new ObjectId(req.params.receiverId);
 
   const channel = await getOrCreateChannel(senderId, receiverId);
 
@@ -211,7 +215,7 @@ export const getChannelById = async (req: Request, res: Response) => {
 };
 
 export const getChannelMessages = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.id)) {
+  if (!ObjectId.isValid(req.params.channelId)) {
     return res.status(404).json({ error: 'The channel is not found!' });
   }
   const channelId = new ObjectId(req.params.channelId);
@@ -362,6 +366,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     edited: false,
     delivered: false,
     seen: false,
+    replied: false,
   });
 
   const newMessage = {
@@ -443,6 +448,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     edited: false,
     seen: false,
     delivered: false,
+    replied: false,
   });
   return res.json({ message: 'MESSAGE DELETED forwarded' });
 };
@@ -539,33 +545,33 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
 export const createGroup = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as GroupCreateInput;
-  const newGroupChannel: WithId<GroupsEntity> = {
+  const newGroup: WithId<GroupsEntity> = {
     _id: new ObjectId(),
     participants: [senderId],
     createdAt: new Date(),
-    channelName: body.channelName,
+    groupName: body.groupName,
     description: body.description,
-    channelAvatar: '',
+    groupAvatar: body.groupAvatar || null,
     admin: senderId,
     moderators: [],
   };
 
-  await groups.insertOne(newGroupChannel);
-  return res.status(200).json(newGroupChannel);
+  await groups.insertOne(newGroup);
+  return res.status(200).json(newGroup);
 };
 
 export const updateGroup = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as UpdateGroupInput;
-  console.log(req.params.channelId);
-  const channelId = new ObjectId(req.params.channelId);
+  console.log(req.params.groupId);
+  const groupId = new ObjectId(req.params.groupId);
 
   const group = await groups.findOneAndUpdate(
-    { _id: channelId, admin: userId },
+    { _id: groupId, admin: userId },
     {
       $set: shake({
-        channelName: body.channelName,
-        channelAvatar: body.channelAvatar,
+        groupName: body.groupName,
+        groupAvatar: body.groupAvatar,
         description: body.description,
       }),
     },
@@ -577,8 +583,8 @@ export const updateGroup = async (req: Request, res: Response) => {
 
 export const deleteGroup = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const channelId = new ObjectId(req.params.channelId);
-  await groups.deleteOne({ _id: channelId, admin: userId });
+  const groupId = new ObjectId(req.params.groupId);
+  await groups.deleteOne({ _id: groupId, admin: userId });
   return res.status(200).json({ message: 'OK' });
 };
 
@@ -586,17 +592,17 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   console.log(req.params.receiversId);
   const memberId = new ObjectId(req.params.memberId);
-  const channelId = new ObjectId(req.params.channelId);
-  const group = await groups.findOne({ _id: channelId });
+  const groupId = new ObjectId(req.params.groupId);
+  const group = await groups.findOne({ _id: groupId });
 
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
-  const members = await groups.findOne({ participants: memberId });
+  const members = await groups.findOne({ _id: groupId, participants: memberId });
 
   if (members) {
     return res.status(400).json({ message: 'USER ALREADY EXISTS IN THE GROUP!' });
   } else {
     const newMember = await groups.findOneAndUpdate(
-      { _id: channelId, participants: userId },
+      { _id: groupId, participants: userId },
       { $addToSet: { participants: memberId } },
       { returnDocument: 'after' },
     );
@@ -606,25 +612,26 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 };
 
 export const updateMemberToModerator = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.id)) {
+  if (!ObjectId.isValid(req.params.memberId && req.params.channelId)) {
     return res.status(400).json({ message: 'OBJECT ID IS NOT VALID!' });
   }
   const userId = new ObjectId(req.user!.userId);
-  const channelId = new ObjectId(req.params.channelId);
-  const group = await groups.findOne({ _id: channelId });
+  const groupId = new ObjectId(req.params.groupId);
+  const group = await groups.findOne({ _id: groupId });
   const memberId = new ObjectId(req.params.memberId);
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
 
   if (group) {
-    const receivers = await groups.findOne({ participants: memberId });
+    const members = await groups.findOne({ participants: memberId });
     const moderators = await groups.findOne({ moderators: memberId });
 
     if (moderators) return res.status(400).json({ message: "ALREADY IN YOUR MODERATOR\'S LIST" });
 
-    if (receivers) {
+    if (members) {
       const newModerator = await groups.findOneAndUpdate(
-        { _id: channelId, admin: userId },
+        { _id: groupId, admin: userId },
         { $addToSet: { moderators: memberId } },
+        { returnDocument: 'after' },
       );
       return res.status(200).json(newModerator);
     } else {
@@ -644,7 +651,7 @@ export const getGroups = async (req: Request, res: Response) => {
         $lookup: {
           from: Collections.GROUP_MESSAGES,
           localField: '_id',
-          foreignField: 'channelId',
+          foreignField: 'groupId',
           as: 'lastMessage',
           pipeline: [
             {
@@ -675,27 +682,25 @@ export const getGroups = async (req: Request, res: Response) => {
 export const sendGroupMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupMessageInput;
-  const channelId = new ObjectId(req.params.channelId);
-  const channel = await groups.findOne({ _id: channelId });
+  const groupId = new ObjectId(req.params.groupId);
+  const channel = await groups.findOne({ _id: groupId });
   const receiversId = channel?.participants;
-  if (!body.message || !body.imageURL) {
-    return res.status(400).json({ error: "MESSAGE CAN'T BE EMPTY!" });
-  }
   if (receiversId) {
     const { insertedId } = await groupMessages.insertOne({
-      channelId: channelId,
+      groupId: groupId,
       senderId: senderId,
       receiversId: receiversId,
-      message: body.message,
+      message: body.message ?? null,
       imageURL: body.imageURL ?? null,
       createdAt: new Date(),
       deletedAt: null,
       editedAt: null,
       deleted: false,
       edited: false,
+      replied: false,
     });
     const groupMessage: WithId<GroupMessagesEntity> = {
-      channelId: channelId,
+      groupId: groupId,
       senderId: senderId,
       receiversId: receiversId,
       message: body.message,
@@ -705,6 +710,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       editedAt: null,
       deleted: false,
       edited: false,
+      replied: false,
       _id: insertedId,
     };
     const sender = await user_profiles.findOne({ userId: senderId });
@@ -716,20 +722,20 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
 };
 
 export const getGroupMessages = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.channelId)) {
+  if (!ObjectId.isValid(req.params.groupId)) {
     console.log('error');
     return res.status(404).json({ error: 'INVALID ID!' });
   }
-  const channelId = new ObjectId(req.params.channelId);
+  const groupId = new ObjectId(req.params.groupId);
   const groupMessagesData = await groupMessages
     .aggregate([
       {
-        $match: { channelId },
+        $match: { groupId },
       },
       {
         $lookup: {
           from: Collections.GROUPS,
-          localField: 'channelId',
+          localField: 'groupId',
           foreignField: '_id',
           as: 'channel',
         },
@@ -765,14 +771,14 @@ export const getGroupMessages = async (req: Request, res: Response) => {
 };
 
 export const getGroupById = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.channelId)) {
+  if (!ObjectId.isValid(req.params.groupId)) {
     return res.status(200).json({ message: 'INVALID ID!' });
   }
-  const channelId = new ObjectId(req.params.channelId);
+  const groupId = new ObjectId(req.params.groupId);
   const [group] = await groups
     .aggregate([
       {
-        $match: { _id: channelId },
+        $match: { _id: groupId },
       },
       {
         $lookup: {
@@ -847,27 +853,24 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'ID NOT FOUND!' });
   }
   const userId = new ObjectId(req.user!.userId);
-  const channelId = new ObjectId(req.params.channelId);
+  const groupId = new ObjectId(req.params.groupId);
   const memberId = new ObjectId(req.params.memberId);
-  const group = await groups.findOne({ _id: channelId });
+  const group = await groups.findOne({ _id: groupId });
   if (!group) {
-    return res.status(404).json({ message: 'GROUP NOT FOUND!' });
+    return res.status(404).json({ message: 'GROUP NOT FOUND!❌' });
   }
-  if (group.admin !== userId) {
-    // needs to be fixed
-    return res.status(403).json({ message: 'YOU ARE NOT AUTHORIZED TO DELETE THE MEMBER' });
-  }
-  const moderators = await groups.findOne({ _id: channelId, moderators: memberId });
+
+  const moderators = await groups.findOne({ _id: groupId, moderators: { $in: [memberId] } });
   if (moderators) {
     const updatedMembers = await groups.findOneAndUpdate(
-      { _id: channelId, admin: userId },
+      { _id: groupId, admin: userId },
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
     return res.status(200).json(updatedMembers);
   } else {
     const updatedParticipants = await groups.findOneAndUpdate(
-      { _id: channelId, admin: userId },
+      { _id: groupId, admin: userId },
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
@@ -878,27 +881,127 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
 export const kickGroupMembers = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as DeleteMembersInput;
-  const isValid = body.membersId.filter((id) => ObjectId.isValid(id));
-  if (isValid.length === 0) {
-    return res.status(400).json({ message: 'OBJECT ID  NOT FOUND!' });
-  }
-  const channelId = new ObjectId(req.params.channelId);
+  const groupId = new ObjectId(req.params.groupId);
 
-  const membersId = isValid.map((id) => new ObjectId(id));
-  const moderators = await groups.findOne({ _id: channelId, moderators: { $in: membersId } });
+  const membersId = body.membersId.map((id) => new ObjectId(id));
+  console.log('hdhhdh', membersId);
+  const moderators = await groups.findOne({ _id: groupId, moderators: { $in: membersId } });
   if (moderators) {
-    const kickedModerators = await groups.findOneAndUpdate(
-      { _id: channelId, admin: userId },
-      { $pull: { moderators: membersId } },
+    console.log('ff');
+    await groups.updateMany(
+      { _id: groupId, admin: userId },
+      // @ts-expect-error
+      { $pull: { participants: { $in: membersId }, moderators: { $in: membersId } } },
       { returnDocument: 'after' },
     );
-    return res.status(200).json(kickedModerators);
+
+    return res.status(200).json({ message: 'KICKED IN THE ASS 🍑' });
   } else {
     const kickedParticipants = await groups.findOneAndUpdate(
-      { _id: channelId, admin: userId },
-      { $pull: { $in: { participants: membersId } } },
+      { _id: groupId, admin: userId },
+      // @ts-expect-error
+      { $pull: { participants: { $in: membersId } } },
       { returnDocument: 'after' },
     );
     return res.status(200).json(kickedParticipants);
   }
+};
+
+export const demoteModeratorToMember = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const moderatorId = new ObjectId(req.params.moderatorId);
+  const groupId = new ObjectId(req.params.groupId);
+  const demoteModerator = await groups.findOneAndUpdate(
+    { _id: groupId, admin: userId },
+    { $pull: { moderators: moderatorId } },
+    { returnDocument: 'after' },
+  );
+  return res.status(200).json(demoteModerator);
+};
+
+export const getGroupMedia = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.groupId)) {
+    return res.status(200).json({ message: 'INVALID ID ❌' });
+  }
+  const groupId = new ObjectId(req.params.groupId);
+  const userId = new ObjectId(req.user!.userId);
+  const groupMedia = await groupMessages
+    .aggregate([
+      {
+        $match: { groupId: groupId, receiversId: userId, imageURL: { $ne: null } },
+      },
+      {
+        $project: { imageURL: 1 },
+      },
+    ])
+    .toArray();
+
+  return res.status(200).json(groupMedia);
+};
+
+export const sendGroupReaction = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as SendGroupReactionInput;
+  const { insertedId } = await groupReactions.insertOne({
+    messageId: body.messageId,
+    reaction: body.reaction,
+    reacted: true,
+    createdAt: new Date(),
+    senderId: userId,
+  });
+  const insertedReaction: WithId<GroupReactionsEntity> = {
+    messageId: body.messageId,
+    reaction: body.reaction,
+    reacted: true,
+    createdAt: new Date(),
+    senderId: userId,
+    _id: insertedId,
+  };
+  return res.status(200).json(insertedReaction);
+};
+
+export const deleteGroupReaction = async (req: Request, res: Response) => {
+  const reactionId = new ObjectId(req.params.reactionId);
+  const userId = new ObjectId(req.user!.userId);
+  await groupReactions.deleteOne({ _id: reactionId, senderId: userId });
+  return res.json({ message: 'REACTION IS DELETED 🚮' });
+};
+
+export const reply = async ($input: {
+  userId: ObjectId;
+  body: SendReplyInput;
+  type: 'posts' | 'messages' | 'stories' | 'reels' | 'groups';
+}) => {
+  const newReply: WithId<RepliesEntity> = {
+    _id: new ObjectId(),
+    replierId: $input.userId,
+    content: $input.body.content,
+    contentId: $input.body.contentId,
+    type: $input.type,
+    repliedAt: new Date(),
+  };
+  await replies.insertOne(newReply);
+  return newReply;
+};
+
+export const sendMessageReply = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as SendReplyInput;
+  const messageId = new ObjectId(body.contentId);
+
+  const sendReply = await reply({ userId, body, type: 'messages' });
+  await messages.updateOne({ _id: messageId }, { $set: { replied: true } });
+
+  return res.status(200).json(sendReply);
+};
+
+export const sendGroupMessageReply = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as SendReplyInput;
+  const groupMessageId = new ObjectId(body.contentId);
+
+  const sendReply = await reply({ userId, body, type: 'groups' });
+  await groupMessages.updateOne({ _id: groupMessageId }, { $set: { replied: true } });
+
+  return res.status(200).json(sendReply);
 };

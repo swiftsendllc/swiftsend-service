@@ -1,5 +1,5 @@
 export interface UpdateGroupInput {
-  channelName: string;
+  groupName: string;
   description: string;
-  channelAvatar: string;
+  groupAvatar: string;
 }

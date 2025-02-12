@@ -1,4 +1,5 @@
 export interface GroupCreateInput {
-  channelName: string;
+  groupName: string;
   description: string;
+  groupAvatar: string | null;
 }
