@@ -543,16 +543,16 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
 };
 
 export const createGroup = async (req: Request, res: Response) => {
-  const senderId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const body = req.body as GroupCreateInput;
   const newGroup: WithId<GroupsEntity> = {
     _id: new ObjectId(),
-    participants: [senderId],
+    participants: [adminId],
     createdAt: new Date(),
     groupName: body.groupName,
     description: body.description,
     groupAvatar: body.groupAvatar || null,
-    admin: senderId,
+    admin: adminId,
     moderators: [],
   };
 
@@ -561,13 +561,13 @@ export const createGroup = async (req: Request, res: Response) => {
 };
 
 export const updateGroup = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const body = req.body as UpdateGroupInput;
   console.log(req.params.groupId);
   const groupId = new ObjectId(req.params.groupId);
 
   const group = await groups.findOneAndUpdate(
-    { _id: groupId, admin: userId },
+    { _id: groupId, admin: adminId },
     {
       $set: shake({
         groupName: body.groupName,
@@ -582,14 +582,14 @@ export const updateGroup = async (req: Request, res: Response) => {
 };
 
 export const deleteGroup = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
-  await groups.deleteOne({ _id: groupId, admin: userId });
+  await groups.deleteOne({ _id: groupId, admin: adminId });
   return res.status(200).json({ message: 'OK' });
 };
 
 export const addMemberToGroup = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   console.log(req.params.receiversId);
   const memberId = new ObjectId(req.params.memberId);
   const groupId = new ObjectId(req.params.groupId);
@@ -602,7 +602,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'USER ALREADY EXISTS IN THE GROUP!' });
   } else {
     const newMember = await groups.findOneAndUpdate(
-      { _id: groupId, participants: userId },
+      { _id: groupId, participants: adminId },
       { $addToSet: { participants: memberId } },
       { returnDocument: 'after' },
     );
@@ -612,10 +612,10 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 };
 
 export const updateMemberToModerator = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.memberId && req.params.channelId)) {
+  if (!ObjectId.isValid(req.params.memberId && req.params.groupId)) {
     return res.status(400).json({ message: 'OBJECT ID IS NOT VALID!' });
   }
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const group = await groups.findOne({ _id: groupId });
   const memberId = new ObjectId(req.params.memberId);
@@ -629,7 +629,7 @@ export const updateMemberToModerator = async (req: Request, res: Response) => {
 
     if (members) {
       const newModerator = await groups.findOneAndUpdate(
-        { _id: groupId, admin: userId },
+        { _id: groupId, admin: adminId },
         { $addToSet: { moderators: memberId } },
         { returnDocument: 'after' },
       );
@@ -852,7 +852,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
   if (!ObjectId.isValid(req.params.memberId)) {
     return res.status(404).json({ message: 'ID NOT FOUND!' });
   }
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const memberId = new ObjectId(req.params.memberId);
   const group = await groups.findOne({ _id: groupId });
@@ -863,14 +863,14 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
   const moderators = await groups.findOne({ _id: groupId, moderators: { $in: [memberId] } });
   if (moderators) {
     const updatedMembers = await groups.findOneAndUpdate(
-      { _id: groupId, admin: userId },
+      { _id: groupId, admin: adminId },
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
     return res.status(200).json(updatedMembers);
   } else {
     const updatedParticipants = await groups.findOneAndUpdate(
-      { _id: groupId, admin: userId },
+      { _id: groupId, admin: adminId },
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
@@ -879,7 +879,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
 };
 
 export const kickGroupMembers = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const body = req.body as DeleteMembersInput;
   const groupId = new ObjectId(req.params.groupId);
 
@@ -889,7 +889,7 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
   if (moderators) {
     console.log('ff');
     await groups.updateMany(
-      { _id: groupId, admin: userId },
+      { _id: groupId, admin: adminId },
       // @ts-expect-error
       { $pull: { participants: { $in: membersId }, moderators: { $in: membersId } } },
       { returnDocument: 'after' },
@@ -898,7 +898,7 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'KICKED IN THE ASS 🍑' });
   } else {
     const kickedParticipants = await groups.findOneAndUpdate(
-      { _id: groupId, admin: userId },
+      { _id: groupId, admin: adminId },
       // @ts-expect-error
       { $pull: { participants: { $in: membersId } } },
       { returnDocument: 'after' },
@@ -908,11 +908,11 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
 };
 
 export const demoteModeratorToMember = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const adminId = new ObjectId(req.user!.userId);
   const moderatorId = new ObjectId(req.params.moderatorId);
   const groupId = new ObjectId(req.params.groupId);
   const demoteModerator = await groups.findOneAndUpdate(
-    { _id: groupId, admin: userId },
+    { _id: groupId, admin: adminId },
     { $pull: { moderators: moderatorId } },
     { returnDocument: 'after' },
   );
@@ -962,8 +962,8 @@ export const sendGroupReaction = async (req: Request, res: Response) => {
 
 export const deleteGroupReaction = async (req: Request, res: Response) => {
   const reactionId = new ObjectId(req.params.reactionId);
-  const userId = new ObjectId(req.user!.userId);
-  await groupReactions.deleteOne({ _id: reactionId, senderId: userId });
+  const senderId = new ObjectId(req.user!.userId);
+  await groupReactions.deleteOne({ _id: reactionId, senderId: senderId });
   return res.json({ message: 'REACTION IS DELETED 🚮' });
 };
 
