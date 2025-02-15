@@ -717,7 +717,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
     const receiverSocketId = channel.participants || [];
     const receivers = receiverSocketId.map((id) => id.toString()) as [];
     io.to(receivers).emit('groupMessage', { ...groupMessage, sender });
-    return res.json({ ...groupMessage, sender });
+    return res.json({ ...groupMessage, sender});
   }
 };
 
@@ -737,12 +737,12 @@ export const getGroupMessages = async (req: Request, res: Response) => {
           from: Collections.GROUPS,
           localField: 'groupId',
           foreignField: '_id',
-          as: 'channel',
+          as: 'group',
         },
       },
       {
         $unwind: {
-          path: '$channel',
+          path: '$group',
         },
       },
       {
@@ -763,6 +763,22 @@ export const getGroupMessages = async (req: Request, res: Response) => {
       },
       {
         $unwind: { path: '$sender' },
+      },
+      {
+        $lookup: {
+          from: Collections.GROUP_REACTIONS,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: 'reactions',
+          pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }],
+        },
+      },
+      {
+        $set: {
+          isReacted: {
+            $cond: [{ $gt: [{ $size: '$reactions' }, 0] }, true, false],
+          },
+        },
       },
     ])
     .toArray();
@@ -805,7 +821,7 @@ export const editGroupMessage = async (req: Request, res: Response) => {
   }
   const result = await groupMessages.updateOne(
     { _id: messageId, senderId: senderId },
-    { $set: { message: body.message, imageURL: body.imageURL, edited: true, editedAt: new Date() } },
+    { $set: { message: body.message, edited: true, editedAt: new Date() } },
   );
   if (result.modifiedCount > 0) {
     const updateGroupMessage = await groupMessages.findOne({ _id: messageId });
@@ -814,7 +830,6 @@ export const editGroupMessage = async (req: Request, res: Response) => {
     io.to(receivers).emit('group_message_edited', {
       _id: messageId,
       message: body.message,
-      imageURL: body.imageURL,
       edited: true,
       editedAt: new Date(),
     });
@@ -942,29 +957,50 @@ export const getGroupMedia = async (req: Request, res: Response) => {
 export const sendGroupReaction = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupReactionInput;
+  const messageId = new ObjectId(body.messageId);
+
   const { insertedId } = await groupReactions.insertOne({
-    messageId: body.messageId,
+    messageId: messageId,
     reaction: body.reaction,
-    reacted: true,
     createdAt: new Date(),
     senderId: userId,
   });
   const insertedReaction: WithId<GroupReactionsEntity> = {
     messageId: body.messageId,
     reaction: body.reaction,
-    reacted: true,
     createdAt: new Date(),
     senderId: userId,
     _id: insertedId,
   };
-  return res.status(200).json(insertedReaction);
+
+  const groupMessage = await groupMessages.findOne({ _id: messageId, senderId: userId });
+
+  const receiverSocketId: ObjectId[] = groupMessage?.receiversId || [];
+  const receivers = receiverSocketId.map((id) => id.toString()) || '';
+  io.to(receivers).emit('group_message_reacted', { ...insertedReaction, isReacted: true });
+
+  return res.status(200).json({ ...groupMessage, isReacted: true });
 };
 
 export const deleteGroupReaction = async (req: Request, res: Response) => {
   const reactionId = new ObjectId(req.params.reactionId);
   const senderId = new ObjectId(req.user!.userId);
   await groupReactions.deleteOne({ _id: reactionId, senderId: senderId });
-  return res.json({ message: 'REACTION IS DELETED 🚮' });
+
+  const reaction = await groupReactions.findOne({ _id: reactionId });
+  const messageId = reaction?.messageId;
+
+  const groupMessage = await groupMessages.findOne({ _id: messageId });
+
+  const receiverSocketId = groupMessage?.receiversId || [];
+  const receivers = receiverSocketId.map((id) => id.toString()) || [];
+
+  io.to(receivers).emit('group_reaction_deleted', {
+    userId: senderId,
+    reactionId: reactionId,
+  });
+
+  return res.json({ ...groupMessage, isReacted: false });
 };
 
 export const reply = async ($input: {
