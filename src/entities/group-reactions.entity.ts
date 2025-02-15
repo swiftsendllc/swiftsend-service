@@ -5,5 +5,4 @@ export interface GroupReactionsEntity {
   messageId: ObjectId;
   senderId: ObjectId;
   createdAt: Date;
-  reacted: boolean;
 }
