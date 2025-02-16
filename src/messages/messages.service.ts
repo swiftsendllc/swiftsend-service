@@ -454,7 +454,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
 };
 
 export const deleteMessage = async (req: Request, res: Response) => {
-  const messageId = new ObjectId(req.params.id);
+  const messageId = new ObjectId(req.params.messageId);
   const userId = new ObjectId(req.user!.userId);
   const message = await messages.findOne({ _id: messageId });
   if (!message) {
