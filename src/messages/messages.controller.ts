@@ -97,7 +97,7 @@ router.delete('/messages/reactions/:reactionId/delete', auth, deleteMessageReact
 
 router.patch('/messages/:id/edit', auth, editMessage);
 
-router.delete('/messages/:id/:deleted/delete', auth, deleteMessage);
+router.delete('/messages/delete/:messageId', auth, deleteMessage);
 
 router.post('/messages/:id/:receiverId/forward', auth, forwardMessage);
 
