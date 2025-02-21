@@ -130,7 +130,7 @@ export const getChannels = async (req: Request, res: Response) => {
       receiver: {
         ...channel.receiver,
         isOnline: !!receiverSocketData,
-        lastSeen: receiverSocketData?.lastActive,
+        lastSeen: receiverSocketData?.lastActive || channel.receiver.lastSeen || null,
       },
     };
   });
@@ -209,7 +209,7 @@ export const getChannelById = async (req: Request, res: Response) => {
     receiver: {
       ...singleChannel.receiver,
       isOnline: !!receiverSocketData,
-      lastSeen: receiverSocketData?.lastActive,
+      lastSeen: receiverSocketData?.lastActive || singleChannel.receiver.lastSeen,
     },
   });
 };
@@ -386,17 +386,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   } as WithId<MessagesEntity>;
 
   const receiverSocketId = receiverId.toString();
-  console.log(receiverSocketId);
-  const receiverRoom = io.sockets.adapter.rooms.get(receiverSocketId);
-  const isReceiverOnline = receiverRoom && receiverRoom.size > 0;
-
-  if (isReceiverOnline) {
-    await messages.updateOne({ _id: insertedId }, { $set: { seen: true } });
-    io.to(receiverSocketId).emit('newMessage', newMessage);
-  } else {
-    await messages.updateOne({ _id: insertedId }, { $set: { delivered: true } });
-    io.to(receiverSocketId).emit('newMessage', newMessage);
-  }
+  io.to(receiverSocketId).emit('newMessage', newMessage);
   return res.json(newMessage);
 };
 
@@ -684,7 +674,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const body = req.body as SendGroupMessageInput;
   const groupId = new ObjectId(req.params.groupId);
   const channel = await groups.findOne({ _id: groupId });
-  const receiversId = channel?.participants;
+  const receiversId = channel?.participants.filter((id) => !id.equals(senderId));
   if (receiversId) {
     const { insertedId } = await groupMessages.insertOne({
       groupId: groupId,
@@ -714,10 +704,9 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       _id: insertedId,
     };
     const sender = await user_profiles.findOne({ userId: senderId });
-    const receiverSocketId = channel.participants || [];
-    const receivers = receiverSocketId.map((id) => id.toString()) as [];
+    const receivers = receiversId.map((id) => id.toString()) as [];
     io.to(receivers).emit('groupMessage', { ...groupMessage, sender });
-    return res.json({ ...groupMessage, sender});
+    return res.json({ ...groupMessage, sender });
   }
 };
 
@@ -727,6 +716,8 @@ export const getGroupMessages = async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'INVALID ID!' });
   }
   const groupId = new ObjectId(req.params.groupId);
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = parseInt(req.query.offset as string) || 0;
   const groupMessagesData = await groupMessages
     .aggregate([
       {
@@ -779,6 +770,15 @@ export const getGroupMessages = async (req: Request, res: Response) => {
             $cond: [{ $gt: [{ $size: '$reactions' }, 0] }, true, false],
           },
         },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
+      {
+        $skip: offset,
+      },
+      {
+        $limit: limit,
       },
     ])
     .toArray();
