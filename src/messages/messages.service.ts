@@ -191,6 +191,14 @@ export const getChannelById = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.REPLIES,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: 'reply',
+        },
+      },
+      {
         $unwind: {
           path: '$lastMessage',
           preserveNullAndEmptyArrays: true,
@@ -233,14 +241,31 @@ export const getChannelMessages = async (req: Request, res: Response) => {
       {
         $lookup: {
           from: Collections.USER_PROFILES,
-          localField: 'receiverId',
+          localField: 'senderId',
           foreignField: 'userId',
-          as: 'user',
+          as: 'receiver',
         },
       },
       {
         $unwind: {
-          path: '$user',
+          path: '$receiver',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.MESSAGES,
+          localField: '_id',
+          foreignField: 'repliedTo',
+          as: 'reply',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.REPLIES,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: 'reply',
         },
       },
       {
@@ -366,7 +391,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     edited: false,
     delivered: false,
     seen: false,
-    replied: false,
+    repliedTo: null,
   });
 
   const newMessage = {
@@ -382,6 +407,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     edited: false,
     delivered: false,
     seen: false,
+    repliedTo: null,
     _id: insertedId,
   } as WithId<MessagesEntity>;
 
@@ -438,7 +464,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     edited: false,
     seen: false,
     delivered: false,
-    replied: false,
+    repliedTo: null,
   });
   return res.json({ message: 'MESSAGE DELETED forwarded' });
 };
@@ -1003,41 +1029,56 @@ export const deleteGroupReaction = async (req: Request, res: Response) => {
   return res.json({ ...groupMessage, isReacted: false });
 };
 
-export const reply = async ($input: {
-  userId: ObjectId;
-  body: SendReplyInput;
-  type: 'posts' | 'messages' | 'stories' | 'reels' | 'groups';
-}) => {
-  const newReply: WithId<RepliesEntity> = {
-    _id: new ObjectId(),
-    replierId: $input.userId,
-    content: $input.body.content,
-    contentId: $input.body.contentId,
-    type: $input.type,
-    repliedAt: new Date(),
-  };
-  await replies.insertOne(newReply);
-  return newReply;
-};
-
 export const sendMessageReply = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
+  const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendReplyInput;
-  const messageId = new ObjectId(body.contentId);
 
-  const sendReply = await reply({ userId, body, type: 'messages' });
-  await messages.updateOne({ _id: messageId }, { $set: { replied: true } });
+  const messageId = new ObjectId(body.messageId);
+  const receiverId = new ObjectId(body.receiverId);
+  const channel = await getOrCreateChannel(senderId, receiverId);
 
-  return res.status(200).json(sendReply);
-};
+  const { insertedId } = await messages.insertOne({
+    channelId: channel._id,
+    message: body.message,
+    imageURL: body.imageURL ?? null,
+    senderId,
+    receiverId,
+    createdAt: new Date(),
+    deletedAt: null,
+    editedAt: null,
+    deleted: false,
+    edited: false,
+    delivered: false,
+    seen: false,
+    repliedTo: null,
+  });
+  const replyMessage: WithId<MessagesEntity> = {
+    _id: insertedId,
+    channelId: channel._id,
+    message: body.message,
+    imageURL: body.imageURL ?? null,
+    senderId,
+    receiverId,
+    createdAt: new Date(),
+    deletedAt: null,
+    editedAt: null,
+    deleted: false,
+    edited: false,
+    delivered: false,
+    seen: false,
+    repliedTo: null,
+  };
+  io.to(receiverId.toString()).emit('replyMessage', replyMessage);
 
-export const sendGroupMessageReply = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const body = req.body as SendReplyInput;
-  const groupMessageId = new ObjectId(body.contentId);
+  await replies.insertOne({
+    replierId: senderId,
+    imageURL: body.imageURL ?? null,
+    message: body.message,
+    messageId,
+    receiverId,
+    repliedAt: new Date(),
+  });
+  await messages.updateOne({ _id: messageId, senderId }, { $set: { repliedTo: insertedId } });
 
-  const sendReply = await reply({ userId, body, type: 'groups' });
-  await groupMessages.updateOne({ _id: groupMessageId }, { $set: { replied: true } });
-
-  return res.status(200).json(sendReply);
+  return res.status(200).json(replyMessage);
 };

@@ -1,6 +1,8 @@
-import { ObjectId } from "mongodb"
+import { ObjectId } from 'mongodb';
 
-export interface SendReplyInput{
-  content:string
-  contentId:ObjectId
+export interface SendReplyInput {
+  message: string | null;
+  imageURL: string | null;
+  messageId: ObjectId;
+  receiverId: ObjectId;
 }
