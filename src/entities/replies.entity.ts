@@ -2,8 +2,9 @@ import { ObjectId } from 'mongodb';
 
 export interface RepliesEntity {
   replierId: ObjectId
-  contentId: ObjectId;
+  messageId: ObjectId;
   repliedAt: Date;
-  type: 'posts' | 'messages' | 'stories' | 'reels' | "groups";
-  content: string;
+  message: string |  null;
+  imageURL:string | null;
+  receiverId:ObjectId
 }
