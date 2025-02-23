@@ -16,7 +16,11 @@ export const Collections = {
   GROUPS: 'groups',
   GROUP_MESSAGES: 'group_messages',
   GROUP_REACTIONS: 'group_reactions',
-  REPLIES:"replies"
+  REPLIES: 'replies',
+  SUBSCRIPTIONS: 'subscriptions',
+  PAYMENTS: 'payments',
+  PURCHASES: 'purchases',
+  GROUP_REPLIES: 'group_replies',
 } as const;
 
 export const Env = {

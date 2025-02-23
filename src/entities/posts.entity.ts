@@ -9,4 +9,7 @@ export interface PostsEntity {
   shareCount: number;
   saveCount: number;
   createdAt: Date;
+  deletedAt: Date | null;
+  price: number;
+  isExclusive: boolean
 }

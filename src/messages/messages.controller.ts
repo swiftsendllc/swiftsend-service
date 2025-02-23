@@ -23,6 +23,7 @@ import {
   getGroupMedia,
   getGroupMessages,
   getGroups,
+  groupMessageReply,
   kickGroupMembers,
   kickMemberFromGroup,
   sendGroupMessage,
@@ -63,6 +64,8 @@ router.put('/groups/update/:groupId/:memberId', auth, updateMemberToModerator);
 router.post('/groups/messages/send/:groupId', auth, sendGroupMessage);
 
 router.post('/channels/messages/reply', auth, sendMessageReply);
+
+router.post('/groups/messages/reply/:groupId', auth, groupMessageReply);
 
 router.post('/groups/messages/reactions/send', auth, sendGroupReaction);
 

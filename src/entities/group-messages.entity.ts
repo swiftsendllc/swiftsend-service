@@ -11,5 +11,5 @@ export interface GroupMessagesEntity {
   editedAt: Date | null;
   deleted: boolean;
   edited: boolean;
-  replied: boolean;
+  repliedTo:ObjectId | null
 }
