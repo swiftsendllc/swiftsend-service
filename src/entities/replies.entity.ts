@@ -6,5 +6,5 @@ export interface RepliesEntity {
   repliedAt: Date;
   message: string |  null;
   imageURL:string | null;
-  receiverId:ObjectId
+  receiverId:ObjectId | ObjectId[]
 }

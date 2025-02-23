@@ -5,6 +5,7 @@ import { io, onlineUsers } from '..';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { GroupMessagesEntity } from '../entities/group-messages.entity';
 import { GroupReactionsEntity } from '../entities/group-reactions.entity';
+import { GroupRepliesEntity } from '../entities/group_replies.entity';
 import { GroupsEntity } from '../entities/groups.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { ReactionsEntity } from '../entities/reactions.entity';
@@ -19,6 +20,7 @@ import { EditMessageInput } from './dto/edit-message.dto';
 import { GroupCreateInput } from './dto/group-create.dto';
 import { SendGroupMessageInput } from './dto/send-group-message.dto';
 import { SendGroupReactionInput } from './dto/send-group-reaction.dto';
+import { SendGroupMessageReplyInput } from './dto/send-group-reply.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
 import { SendReplyInput } from './dto/send-reply.dto';
@@ -32,6 +34,7 @@ const groups = db.collection<GroupsEntity>(Collections.GROUPS);
 const groupMessages = db.collection<GroupMessagesEntity>(Collections.GROUP_MESSAGES);
 const groupReactions = db.collection<GroupReactionsEntity>(Collections.GROUP_REACTIONS);
 const replies = db.collection<RepliesEntity>(Collections.REPLIES);
+const groupReplies = db.collection<GroupRepliesEntity>(Collections.GROUP_REPLIES);
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channels.findOne({ users: { $all: [senderId, receiverId] } });
@@ -257,7 +260,13 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           from: Collections.MESSAGES,
           localField: '_id',
           foreignField: 'repliedTo',
-          as: 'reply',
+          as: 'repliedMessage',
+        },
+      },
+      {
+        $unwind: {
+          path: '$repliedMessage',
+          preserveNullAndEmptyArrays: true,
         },
       },
       {
@@ -265,7 +274,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           from: Collections.REPLIES,
           localField: '_id',
           foreignField: 'messageId',
-          as: 'reply',
+          as: 'replies',
         },
       },
       {
@@ -369,9 +378,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
-  if (senderId.toString() === receiverId.toString()) {
-    return res.status(400).json({ message: "YOU CAN'T MESSAGE YOURSELF!" });
-  }
+
   if (!receiverId) {
     return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
   }
@@ -699,8 +706,8 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupMessageInput;
   const groupId = new ObjectId(req.params.groupId);
-  const channel = await groups.findOne({ _id: groupId });
-  const receiversId = channel?.participants.filter((id) => !id.equals(senderId));
+  const group = await groups.findOne({ _id: groupId });
+  const receiversId = group?.participants.filter((id) => !id.equals(senderId));
   if (receiversId) {
     const { insertedId } = await groupMessages.insertOne({
       groupId: groupId,
@@ -713,7 +720,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       editedAt: null,
       deleted: false,
       edited: false,
-      replied: false,
+      repliedTo: null,
     });
     const groupMessage: WithId<GroupMessagesEntity> = {
       groupId: groupId,
@@ -726,7 +733,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       editedAt: null,
       deleted: false,
       edited: false,
-      replied: false,
+      repliedTo: null,
       _id: insertedId,
     };
     const sender = await user_profiles.findOne({ userId: senderId });
@@ -783,6 +790,42 @@ export const getGroupMessages = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
+          from: Collections.GROUP_MESSAGES,
+          localField: '_id',
+          foreignField: 'repliedTo',
+          as: 'repliedMessage',
+        },
+      },
+      {
+        $unwind: {
+          path: '$repliedMessage',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'repliedMessage.senderId',
+          foreignField: 'userId',
+          as: 'repliedMessageSender',
+        },
+      },
+      {
+        $unwind: {
+          path: '$repliedMessageSender',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.GROUP_REPLIES,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: 'replies',
+        },
+      },
+      {
+        $lookup: {
           from: Collections.GROUP_REACTIONS,
           localField: '_id',
           foreignField: 'messageId',
@@ -808,8 +851,24 @@ export const getGroupMessages = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
+  const updatedMessages = groupMessagesData.map((message) => {
+    return {
+      ...message,
+      receivers: message.receivers.map((receiver: UserProfilesEntity) => {
+        return {
+          ...receiver,
+          isOnline: !!onlineUsers.get(receiver.userId.toString()),
+        };
+      }),
+      sender:{
+          ...message.sender,
+          isOnline: !!onlineUsers.get(message.sender.userId.toString()),
+        }
 
-  return res.status(200).json(groupMessagesData);
+    };
+  });
+
+  return res.status(200).json(updatedMessages);
 };
 
 export const getGroupById = async (req: Request, res: Response) => {
@@ -1068,7 +1127,6 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     seen: false,
     repliedTo: null,
   };
-  io.to(receiverId.toString()).emit('replyMessage', replyMessage);
 
   await replies.insertOne({
     replierId: senderId,
@@ -1078,7 +1136,60 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     receiverId,
     repliedAt: new Date(),
   });
-  await messages.updateOne({ _id: messageId, senderId }, { $set: { repliedTo: insertedId } });
+  await messages.updateOne({ _id: messageId }, { $set: { repliedTo: insertedId } });
 
-  return res.status(200).json(replyMessage);
+  const repliedMessage = await messages.findOne({ _id: messageId });
+  io.to(receiverId.toString()).emit('replyMessage', { ...replyMessage, repliedMessage });
+
+  return res.status(200).json({ ...replyMessage, repliedMessage });
+};
+
+export const groupMessageReply = async (req: Request, res: Response) => {
+  const senderId = new ObjectId(req.user!.userId);
+  const groupId = new ObjectId(req.params.groupId);
+  const body = req.body as SendGroupMessageReplyInput;
+  const messageId = new ObjectId(body.messageId);
+  const group = await groups.findOne({ _id: groupId });
+  const receiversId = group?.participants.filter((id) => !id.equals(senderId));
+  if (receiversId) {
+    const { insertedId } = await groupMessages.insertOne({
+      senderId,
+      receiversId,
+      groupId: groupId,
+      createdAt: new Date(),
+      deleted: false,
+      edited: false,
+      editedAt: null,
+      deletedAt: null,
+      imageURL: body.imageURL,
+      message: body.message,
+      repliedTo: null,
+    });
+    const replyMessage: WithId<GroupMessagesEntity> = {
+      _id: insertedId,
+      senderId,
+      receiversId,
+      groupId: groupId,
+      createdAt: new Date(),
+      deleted: false,
+      edited: false,
+      editedAt: null,
+      deletedAt: null,
+      imageURL: body.imageURL,
+      message: body.message,
+      repliedTo: null,
+    };
+    await groupMessages.updateOne({ _id: messageId }, { $set: { repliedTo: insertedId } });
+    await groupReplies.insertOne({
+      imageURL: body.imageURL,
+      message: body.message,
+      messageId: messageId,
+      receiversId: receiversId,
+      repliedAt: new Date(),
+      replierId: senderId,
+    });
+    const repliedMessage = await groupMessages.findOne({ _id: messageId });
+    io.to(receiversId.toString()).emit('groupReplyMessage', { ...replyMessage, repliedMessage });
+    return res.json({ ...replyMessage, repliedMessage });
+  }
 };
