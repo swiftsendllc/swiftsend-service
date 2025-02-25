@@ -576,7 +576,7 @@ export const createGroup = async (req: Request, res: Response) => {
     description: body.description,
     groupAvatar: body.groupAvatar || null,
     admin: adminId,
-    moderators: [],
+    moderators: [adminId],
   };
 
   await groups.insertOne(newGroup);
@@ -645,8 +645,8 @@ export const updateMemberToModerator = async (req: Request, res: Response) => {
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
 
   if (group) {
-    const members = await groups.findOne({ participants: memberId });
-    const moderators = await groups.findOne({ moderators: memberId });
+    const members = await groups.findOne({ _id: groupId, participants: memberId });
+    const moderators = await groups.findOne({ _id: groupId, moderators: memberId });
 
     if (moderators) return res.status(400).json({ message: "ALREADY IN YOUR MODERATOR\'S LIST" });
 
@@ -707,7 +707,12 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const body = req.body as SendGroupMessageInput;
   const groupId = new ObjectId(req.params.groupId);
   const group = await groups.findOne({ _id: groupId });
+  const isParticipant = group?.participants.includes(senderId);
+  if (!isParticipant) {
+    return res.status(400).json({ message: 'YOU ARE NOT AUTHORIZED TO MESSAGE!' });
+  }
   const receiversId = group?.participants.filter((id) => !id.equals(senderId));
+
   if (receiversId) {
     const { insertedId } = await groupMessages.insertOne({
       groupId: groupId,
@@ -860,11 +865,10 @@ export const getGroupMessages = async (req: Request, res: Response) => {
           isOnline: !!onlineUsers.get(receiver.userId.toString()),
         };
       }),
-      sender:{
-          ...message.sender,
-          isOnline: !!onlineUsers.get(message.sender.userId.toString()),
-        }
-
+      sender: {
+        ...message.sender,
+        isOnline: !!onlineUsers.get(message.sender.userId.toString()),
+      },
     };
   });
 
@@ -948,6 +952,56 @@ export const deleteGroupMessage = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'MESSAGE DELETED' });
 };
 
+export const leaveGroup = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.groupId)) {
+    return res.status(400).json({ message: 'INVALID ID' });
+  }
+  const userId = new ObjectId(req.user!.userId);
+  const groupId = new ObjectId(req.params.groupId);
+  const isAdmin = await groups.findOne({ _id: groupId, admin: userId });
+  if (isAdmin) {
+    return res.status(400).json({ message: 'TRANSFER LEADERSHIP TO ANY MODERATOR TO LEAVE THE GROUP!' });
+  }
+
+  await groups.updateOne({ _id: groupId }, { $pull: { participants: userId, moderators: userId } });
+
+  return res.status(200).json({ message: 'LEFT THE GROUP' });
+};
+
+export const promoteToAdmin = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.groupId || req.params.moderatorId)) {
+    return res.status(400).json({ message: 'INVALID ID' });
+  }
+  const adminId = new ObjectId(req.user!.userId);
+  const groupId = new ObjectId(req.params.groupId);
+  const moderatorId = new ObjectId(req.params.moderatorId);
+
+  const group = await groups.findOne({ _id: groupId });
+
+  if (!group) {
+    return res.status(404).json({ message: 'GROUP NOT FOUND!' });
+  }
+
+  const isAdmin = group.admin.equals(adminId);
+  const isModerator = group.moderators.map((id) => id.equals(moderatorId));
+
+  if (!isAdmin) {
+    return res.status(400).json({ message: 'UNAUTHORIZED!' });
+  }
+
+  if (!isModerator) {
+    return res.status(400).json({ message: 'UPDATE TO MODERATOR TO SET AS A ADMIN' });
+  }
+
+  const updatedGroup = await groups.findOneAndUpdate(
+    { _id: groupId },
+    { $set: { admin: moderatorId } },
+    { returnDocument: 'after' },
+  );
+
+  return res.status(200).json(updatedGroup);
+};
+
 export const kickMemberFromGroup = async (req: Request, res: Response) => {
   if (!ObjectId.isValid(req.params.memberId)) {
     return res.status(404).json({ message: 'ID NOT FOUND!' });
@@ -956,6 +1010,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
   const groupId = new ObjectId(req.params.groupId);
   const memberId = new ObjectId(req.params.memberId);
   const group = await groups.findOne({ _id: groupId });
+
   if (!group) {
     return res.status(404).json({ message: 'GROUP NOT FOUND!❌' });
   }
@@ -967,6 +1022,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
+
     return res.status(200).json(updatedMembers);
   } else {
     const updatedParticipants = await groups.findOneAndUpdate(
@@ -974,6 +1030,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
       { $pull: { participants: memberId, moderators: memberId } },
       { returnDocument: 'after' },
     );
+
     return res.status(200).json(updatedParticipants);
   }
 };
@@ -987,7 +1044,6 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
   console.log('hdhhdh', membersId);
   const moderators = await groups.findOne({ _id: groupId, moderators: { $in: membersId } });
   if (moderators) {
-    console.log('ff');
     await groups.updateMany(
       { _id: groupId, admin: adminId },
       // @ts-expect-error
@@ -1144,7 +1200,7 @@ export const sendMessageReply = async (req: Request, res: Response) => {
   return res.status(200).json({ ...replyMessage, repliedMessage });
 };
 
-export const groupMessageReply = async (req: Request, res: Response) => {
+export const sendGroupMessageReply = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const body = req.body as SendGroupMessageReplyInput;

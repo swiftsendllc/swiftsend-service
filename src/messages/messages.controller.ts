@@ -23,10 +23,12 @@ import {
   getGroupMedia,
   getGroupMessages,
   getGroups,
-  groupMessageReply,
   kickGroupMembers,
   kickMemberFromGroup,
+  leaveGroup,
+  promoteToAdmin,
   sendGroupMessage,
+  sendGroupMessageReply,
   sendGroupReaction,
   sendMessage,
   sendMessageReactions,
@@ -53,6 +55,8 @@ router.get('/groups/:groupId', auth, getGroupById);
 
 router.put('/groups/add/:groupId/:memberId', auth, addMemberToGroup);
 
+router.patch('/groups/leave/:groupId', auth, leaveGroup);
+
 router.patch('/groups/kick/:groupId', auth, kickGroupMembers);
 
 router.patch('/groups/kick/:groupId/:memberId', auth, kickMemberFromGroup);
@@ -61,11 +65,13 @@ router.patch('/groups/demote/:groupId/:moderatorId', auth, demoteModeratorToMemb
 
 router.put('/groups/update/:groupId/:memberId', auth, updateMemberToModerator);
 
+router.patch('/groups/admin/:groupId/:moderatorId', auth, promoteToAdmin);
+
 router.post('/groups/messages/send/:groupId', auth, sendGroupMessage);
 
 router.post('/channels/messages/reply', auth, sendMessageReply);
 
-router.post('/groups/messages/reply/:groupId', auth, groupMessageReply);
+router.post('/groups/messages/reply/:groupId', auth, sendGroupMessageReply);
 
 router.post('/groups/messages/reactions/send', auth, sendGroupReaction);
 
