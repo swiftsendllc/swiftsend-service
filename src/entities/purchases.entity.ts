@@ -2,6 +2,6 @@ import { ObjectId } from 'mongodb';
 
 export interface PurchasesEntity {
   userId: ObjectId;
-  postId: ObjectId;
+  contentId: ObjectId;
   purchasedAt: Date;
 }

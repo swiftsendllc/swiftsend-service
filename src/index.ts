@@ -7,17 +7,18 @@ sentry();
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
+import { ENV } from './util/constants';
 
 import http from 'http';
 import morgan from 'morgan';
 import { Server } from 'socket.io';
 import loginRouter from './auth/auth.controller';
 import messagesRouter from './messages/messages.controller';
+import paymentsRouter from './payments/payments.controller';
 import postsRouter from './posts/posts.controller';
 import reelsRouter from './reels/reels.controller';
 import storiesRouter from './stories/stories.controller';
 import usersRouter from './users/users.controller';
-import { ENV } from './util/constants';
 
 const app = express();
 const server = http.createServer(app);
@@ -48,7 +49,7 @@ app.get('/debug', () => {
   throw new Error('This is a test error');
 });
 
-app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter);
+app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter, paymentsRouter);
 
 io.on('connection', (socket) => {
   const userId = socket.handshake.query.userId as string;
