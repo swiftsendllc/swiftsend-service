@@ -607,15 +607,23 @@ export const updateGroup = async (req: Request, res: Response) => {
 export const deleteGroup = async (req: Request, res: Response) => {
   const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
+
+  const isAdmin = await groups.findOne({ _id: groupId, admin: adminId });
+
+  if (!isAdmin) {
+    return res.status(401).json({ message: 'UNAUTHORIZED!' });
+  }
+
   await groups.deleteOne({ _id: groupId, admin: adminId });
   return res.status(200).json({ message: 'OK' });
 };
 
 export const addMemberToGroup = async (req: Request, res: Response) => {
   const adminId = new ObjectId(req.user!.userId);
-  console.log(req.params.receiversId);
+
   const memberId = new ObjectId(req.params.memberId);
   const groupId = new ObjectId(req.params.groupId);
+  
   const group = await groups.findOne({ _id: groupId });
 
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
@@ -986,7 +994,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
   const isModerator = group.moderators.map((id) => id.equals(moderatorId));
 
   if (!isAdmin) {
-    return res.status(400).json({ message: 'UNAUTHORIZED!' });
+    return res.status(401).json({ message: 'UNAUTHORIZED!' });
   }
 
   if (!isModerator) {

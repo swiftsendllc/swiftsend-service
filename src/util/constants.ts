@@ -42,6 +42,8 @@ export const Env = {
   NODE_ENV: process.env.NODE_ENV || '',
   SERVICE_NAME: process.env.SERVICE_NAME || '',
   GIT_SHA: process.env.GIT_SHA || '',
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+  STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
 };
 type EnvKeys = keyof typeof Env;
 export const ENV = (key: EnvKeys) => Env[key];
