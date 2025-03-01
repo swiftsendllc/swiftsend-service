@@ -15,6 +15,7 @@ import { Server } from 'socket.io';
 import loginRouter from './auth/auth.controller';
 import messagesRouter from './messages/messages.controller';
 import paymentsRouter from './payments/payments.controller';
+import { webhook } from './payments/payments.service';
 import postsRouter from './posts/posts.controller';
 import reelsRouter from './reels/reels.controller';
 import storiesRouter from './stories/stories.controller';
@@ -34,6 +35,8 @@ declare module 'express' {
     user?: { userId: string };
   }
 }
+
+app.use('/stripe/payment/status/webhook', express.raw({ type: 'application/json' }), webhook);
 
 app.use(express.json());
 app.use(cors());

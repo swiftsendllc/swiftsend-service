@@ -81,6 +81,7 @@ export const signup = async (req: Request, res: Response) => {
       updatedAt: currentTime,
       createdAt: currentTime,
       lastSeen: currentTime,
+      stripeCustomerId: null,
     });
 
     const userId = _id.toString();

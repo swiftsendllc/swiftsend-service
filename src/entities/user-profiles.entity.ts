@@ -19,6 +19,7 @@ export interface UserProfilesEntity {
   postCount: number;
   followerCount: number;
   followingCount: number;
+  stripeCustomerId:string | null
 
   createdAt: Date;
   updatedAt: Date;

@@ -4,5 +4,6 @@ export interface CreatePaymentInput {
   contentId: ObjectId;
   currency: string | "usd";
   amount: number;
-  paymentMethodType: [string] ;
+  payment_method: string;
+  payment_method_type: string[] ;
 }

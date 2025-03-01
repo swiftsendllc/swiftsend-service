@@ -21,6 +21,7 @@ export const Collections = {
   PAYMENTS: 'payments',
   PURCHASES: 'purchases',
   GROUP_REPLIES: 'group_replies',
+  CARDS: 'cards',
 } as const;
 
 export const Env = {
@@ -44,6 +45,7 @@ export const Env = {
   GIT_SHA: process.env.GIT_SHA || '',
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY || '',
 };
 type EnvKeys = keyof typeof Env;
 export const ENV = (key: EnvKeys) => Env[key];

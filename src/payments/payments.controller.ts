@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import { auth } from '../auth/middleware';
-import { createPayment, getPayment } from './payments.service';
+import { attachPaymentMethod, confirmCard, createPayment, getCard } from './payments.service';
 
 const router = Router();
 
 router.post('/create/payment', auth, createPayment);
 
-router.get('/payments/next', auth, getPayment);
+router.post('/payments/confirm-card', auth, confirmCard);
+
+router.get('/customer/card', auth, getCard);
+
+router.post('/payments/attach-card', auth, attachPaymentMethod);
 
 export default router;

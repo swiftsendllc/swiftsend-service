@@ -1,12 +1,12 @@
 import { ObjectId } from 'mongodb';
 
 export interface PaymentsEntity {
-  userId: ObjectId;
+  customerId: ObjectId;
   creatorId: ObjectId;
   contentId: ObjectId;
   stripe_payment_id: string;
   amount: number;
   status: string;
-  currency: string | "usd";
+  currency: string
   createdAt: Date;
 }
