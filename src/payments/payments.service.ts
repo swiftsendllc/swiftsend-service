@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import Stripe from 'stripe';
-import { CardsEntity } from '../entities/cards.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { PurchasesEntity } from '../entities/purchases.entity';
@@ -16,7 +15,6 @@ import { CreatePaymentInput } from './dto/create-payment.dto';
 const payments = db.collection<PaymentsEntity>(Collections.PAYMENTS);
 const purchases = db.collection<PurchasesEntity>(Collections.PURCHASES);
 const posts = db.collection<PostsEntity>(Collections.POSTS);
-const cards = db.collection<CardsEntity>(Collections.CARDS);
 const users = db.collection<UsersEntity>(Collections.USERS);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
@@ -141,8 +139,26 @@ export const webhook = async (req: Request, res: Response) => {
 export const attachPaymentMethod = async (req: Request, res: Response) => {
   try {
     const body = req.body as AttachPaymentMethodInput;
-    const customerId = body.customerId;
     const paymentMethodId = body.paymentMethodId;
+    const userId = new ObjectId(req.user!.userId);
+    const userProfile = await userProfiles.findOne({ userId: userId });
+    const user = await users.findOne({ _id: userId });
+
+    if (!userProfile && !user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    let customerId = userProfile?.stripeCustomerId;
+    console.log(customerId);
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        name: userProfile!.fullName,
+        email: user!.email,
+        metadata: { userId: userId.toString() },
+      });
+      console.log(customer);
+      customerId = customer.id;
+      await userProfiles.updateOne({ userId: userId }, { $set: { stripeCustomerId: customer.id } });
+    }
 
     const intentResult = await stripe.setupIntents.create({
       confirm: true,
@@ -153,10 +169,9 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
     });
 
     if (intentResult.status === 'succeeded') {
-      const updatedCustomer = await stripe.customers.update(customerId, {
+      await stripe.customers.update(customerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
-      return res.json(updatedCustomer);
     }
 
     return res.json({
@@ -172,12 +187,19 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
 
 export const confirmCard = async (req: Request, res: Response) => {
   const body = req.body as ConfirmCardInput;
-  const customerId = body.customerId;
+  const userId = new ObjectId(req.user!.userId);
+  const userProfile = await userProfiles.findOne({ userId: userId });
+  if (!userProfile) {
+    return res.status(404).json({ message: 'User not found!' });
+  }
+  const customerId = userProfile.stripeCustomerId;
   const paymentMethodId = body.paymentMethodId;
-  const confirmedCard = await stripe.customers.update(customerId, {
-    invoice_settings: { default_payment_method: paymentMethodId },
-  });
-  return res.status(200).json(confirmedCard);
+  if (customerId) {
+    const confirmedCard = await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: paymentMethodId },
+    });
+    return res.status(200).json(confirmedCard);
+  }
 };
 
 export const getCard = async (req: Request, res: Response) => {
@@ -188,18 +210,15 @@ export const getCard = async (req: Request, res: Response) => {
   }
 
   const user = await users.findOne({ _id: userProfile.userId });
-  if (!user) {
-    return res.status(404).json({ message: 'User not found!' });
+  if (!user || !userProfile.stripeCustomerId) {
+    return res.status(404).json({ message: 'Customer not found!' });
   }
-  if (!userProfile.stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      name: userProfile.fullName,
-      email: user.email,
-      metadata: { userId: userId.toString() },
-    });
-    await userProfiles.updateOne({ userId: userId }, { $set: { stripeCustomerId: customer.id } });
-    return res.status(200).json(customer);
-  }
+
   const customer = await stripe.customers.retrieve(userProfile.stripeCustomerId);
-  return res.status(200).json(customer);
+  if (!customer.deleted) {
+    const paymentMethod = await stripe.paymentMethods.retrieve(
+      customer.invoice_settings.default_payment_method as string,
+    );
+    return res.status(200).json({ ...paymentMethod, customer });
+  }
 };
