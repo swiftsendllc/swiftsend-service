@@ -4,6 +4,7 @@ export interface PostsEntity {
   userId: ObjectId;
   caption: string;
   imageURL: string;
+  blurredImageURL: string;
   likeCount: number;
   commentCount: number;
   shareCount: number;
@@ -11,5 +12,7 @@ export interface PostsEntity {
   createdAt: Date;
   deletedAt: Date | null;
   price: number;
-  isExclusive: boolean
+  isExclusive: boolean;
+  status: boolean;
+  purchasedBy: ObjectId[];
 }

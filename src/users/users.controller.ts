@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { Request, Router } from 'express';
 import multer from 'multer';
 import { auth } from '../auth/middleware';
-import { deleteFile, uploadFile } from '../util/upload';
+import { uploadFile } from '../util/upload';
 import {
   followProfile,
   getFollowers,
@@ -43,7 +43,6 @@ router.post('/users/upload', auth, upload.single('file'), async (req: Request, r
     },
     path: `assets/${req.user!.userId}/${randomUUID()}/${req.file.originalname}`,
   });
-
   return res.json(result);
 });
 

@@ -1,5 +1,9 @@
-import { Router } from 'express';
+import { randomUUID } from 'crypto';
+import { Request, Router } from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
 import { auth } from '../auth/middleware';
+import { uploadFile } from '../util/upload';
 import {
   createComment,
   createPost,
@@ -20,6 +24,8 @@ import {
 } from './posts.service';
 
 const router = Router();
+
+const upload = multer();
 
 router.get('/posts', auth, getPosts);
 
@@ -52,5 +58,43 @@ router.get('/posts/user/:userId/likes', auth, getLike);
 router.get('/posts/:userId/saves', auth, getSaves);
 
 router.get('/posts/:userId/comments', auth, getComment);
+
+router.post('/posts/upload', auth, upload.single('file'), async (req: Request, res) => {
+  if (!req.file) throw new Error('File is missing');
+
+  const originalFile = await uploadFile({
+    buffer: req.file.buffer,
+    contentType: req.file.mimetype,
+    metadata: {
+      userId: req.user!.userId,
+      originalname: req.file.originalname,
+    },
+    path: `assets/${req.user!.userId}/${randomUUID()}/${req.file.originalname}`,
+  });
+
+  const blurredBuffer = await sharp(req.file.buffer)
+    .blur(15)
+    .resize(200, 200, {
+      fit: sharp.fit.inside,
+      withoutEnlargement: true,
+    })
+    .toFormat('jpeg')
+    .toBuffer();
+
+  const blurredFile = await uploadFile({
+    buffer: blurredBuffer,
+    contentType: req.file.mimetype,
+    metadata: {
+      userId: req.user!.userId,
+      originalFile: req.file.originalname,
+    },
+    path: `assets/${req.user!.userId}/${randomUUID()}/blurred-${req.file.originalname}`,
+  });
+
+  return res.json({
+    originalUrl: originalFile.url,
+    blurredUrl: blurredFile.url,
+  });
+});
 
 export default router;

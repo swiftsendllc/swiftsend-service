@@ -69,7 +69,7 @@ export const createPayment = async (req: Request, res: Response) => {
         name: 'Chris Evans',
       },
     });
-    console.log(paymentIntent.last_payment_error);
+    console.log('The last payment error is:', paymentIntent.last_payment_error);
 
     if (paymentIntent.status === 'requires_action') {
       res.status(200).json({
@@ -77,12 +77,7 @@ export const createPayment = async (req: Request, res: Response) => {
         clientSecret: paymentIntent.client_secret,
       });
     }
-
-    return res.status(200).json({
-      paymentIntent,
-      clientSecret: paymentIntent.client_secret,
-      nextAction: paymentIntent.next_action ?? 'No action required',
-    });
+    
   } catch (error) {
     console.error('Payment Error:', error);
     return res.status(402).json({ message: 'FAILED TO CREATE PAYMENT!' });
