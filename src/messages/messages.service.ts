@@ -389,6 +389,9 @@ export const sendMessage = async (req: Request, res: Response) => {
     channelId: channel._id,
     message: body.message,
     imageURL: body.imageURL ?? null,
+    blurredImageURL: body.blurredImageURL ?? null,
+    isExclusive: body.isExclusive ?? null,
+    price: body.price ?? null,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -462,6 +465,9 @@ export const forwardMessage = async (req: Request, res: Response) => {
     channelId: channel._id,
     message: forwardedMessage.message,
     imageURL: forwardedMessage.imageURL ?? null,
+    blurredImageURL: forwardedMessage.blurredImageURL ?? null,
+    isExclusive: forwardedMessage.isExclusive,
+    price: forwardedMessage.price,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -623,7 +629,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
   const memberId = new ObjectId(req.params.memberId);
   const groupId = new ObjectId(req.params.groupId);
-  
+
   const group = await groups.findOne({ _id: groupId });
 
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
@@ -1164,6 +1170,9 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     channelId: channel._id,
     message: body.message,
     imageURL: body.imageURL ?? null,
+    blurredImageURL: body.blurredImageURL ?? null,
+    isExclusive: body.isExclusive,
+    price: body.price,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -1180,6 +1189,9 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     channelId: channel._id,
     message: body.message,
     imageURL: body.imageURL ?? null,
+    blurredImageURL: body.blurredImageURL ?? null,
+    isExclusive: body.isExclusive,
+    price: body.price ?? null,
     senderId,
     receiverId,
     createdAt: new Date(),

@@ -6,6 +6,9 @@ export interface MessagesEntity {
   channelId: ObjectId;
   message: string | null;
   imageURL: string | null;
+  blurredImageURL:string | null;
+  isExclusive:boolean;
+  price:number;
   createdAt: Date | null;
   deletedAt: Date | null;
   editedAt: Date | null;
