@@ -299,7 +299,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
     .toArray();
   return res.json(channelMessages);
 };
-
+// needs to be fixed for all media
 export const getChannelMedia = async (req: Request, res: Response) => {
   const channelId = new ObjectId(req.params.channelId);
   const media = await messages
@@ -378,6 +378,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
+  const isExclusive = body.isExclusive;
 
   if (!receiverId) {
     return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
@@ -388,10 +389,10 @@ export const sendMessage = async (req: Request, res: Response) => {
   const { insertedId } = await messages.insertOne({
     channelId: channel._id,
     message: body.message,
-    imageURL: body.imageURL ?? null,
-    blurredImageURL: body.blurredImageURL ?? null,
-    isExclusive: body.isExclusive ?? null,
-    price: body.price ?? null,
+    imageUrls: body.imageUrls,
+    blurredImageUrls:  body.blurredImageUrls,
+    isExclusive: isExclusive,
+    price: body.price,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -407,7 +408,10 @@ export const sendMessage = async (req: Request, res: Response) => {
   const newMessage = {
     channelId: channel._id,
     message: body.message,
-    imageURL: body.imageURL ?? null,
+    imageUrls: body.imageUrls,
+    blurredImageUrls: body.blurredImageUrls,
+    isExclusive: isExclusive,
+    price:  body.price ,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -464,8 +468,8 @@ export const forwardMessage = async (req: Request, res: Response) => {
   await messages.insertOne({
     channelId: channel._id,
     message: forwardedMessage.message,
-    imageURL: forwardedMessage.imageURL ?? null,
-    blurredImageURL: forwardedMessage.blurredImageURL ?? null,
+    imageUrls: forwardedMessage.imageUrls ?? null,
+    blurredImageUrls: forwardedMessage.blurredImageUrls ?? null,
     isExclusive: forwardedMessage.isExclusive,
     price: forwardedMessage.price,
     senderId,
@@ -1169,8 +1173,8 @@ export const sendMessageReply = async (req: Request, res: Response) => {
   const { insertedId } = await messages.insertOne({
     channelId: channel._id,
     message: body.message,
-    imageURL: body.imageURL ?? null,
-    blurredImageURL: body.blurredImageURL ?? null,
+    imageUrls: body.imageUrls ?? null,
+    blurredImageUrls: body.blurredImageUrls ?? null,
     isExclusive: body.isExclusive,
     price: body.price,
     senderId,
@@ -1188,8 +1192,8 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     _id: insertedId,
     channelId: channel._id,
     message: body.message,
-    imageURL: body.imageURL ?? null,
-    blurredImageURL: body.blurredImageURL ?? null,
+    imageUrls: body.imageUrls ?? null,
+    blurredImageUrls: body.blurredImageUrls ?? null,
     isExclusive: body.isExclusive,
     price: body.price ?? null,
     senderId,
@@ -1206,7 +1210,7 @@ export const sendMessageReply = async (req: Request, res: Response) => {
 
   await replies.insertOne({
     replierId: senderId,
-    imageURL: body.imageURL ?? null,
+    imageUrls: body.imageUrls ?? null,
     message: body.message,
     messageId,
     receiverId,

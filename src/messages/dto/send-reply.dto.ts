@@ -2,10 +2,10 @@ import { ObjectId } from 'mongodb';
 
 export interface SendReplyInput {
   message: string | null;
-  imageURL: string | null;
-  blurredImageURL:string | null;
+  imageUrls: string[] | null;
+  blurredImageUrls:string[] | null;
   isExclusive:boolean;
-  price:number
+  price:number | null
   messageId: ObjectId;
   receiverId: ObjectId;
 }
