@@ -59,42 +59,46 @@ router.get('/posts/:userId/saves', auth, getSaves);
 
 router.get('/posts/:userId/comments', auth, getComment);
 
-router.post('/posts/upload', auth, upload.single('file'), async (req: Request, res) => {
-  if (!req.file) throw new Error('File is missing');
+router.post('/posts/upload', auth, upload.array('files'), async (req: Request, res) => {
+  if (!req.files || req.files.length === 0) throw new Error('File is missing');
+  const files = req.files as Express.Multer.File[];
 
-  const originalFile = await uploadFile({
-    buffer: req.file.buffer,
-    contentType: req.file.mimetype,
-    metadata: {
-      userId: req.user!.userId,
-      originalname: req.file.originalname,
-    },
-    path: `assets/${req.user!.userId}/${randomUUID()}/${req.file.originalname}`,
-  });
+  const uploaded = await Promise.all(
+    files.map(async (file) => {
+      const originalFile = await uploadFile({
+        buffer: file.buffer,
+        contentType: file.mimetype,
+        metadata: {
+          userId: req.user!.userId,
+          originalname: file.originalname,
+        },
+        path: `assets/${req.user!.userId}/${randomUUID()}/${file.originalname}`,
+      });
 
-  const blurredBuffer = await sharp(req.file.buffer)
-    .blur(15)
-    .resize(200, 200, {
-      fit: sharp.fit.inside,
-      withoutEnlargement: true,
-    })
-    .toFormat('jpeg')
-    .toBuffer();
+      const blurredBuffer = await sharp(file.buffer)
+        .blur(15)
+        .resize(200, 200, {
+          fit: sharp.fit.inside,
+          withoutEnlargement: true,
+        })
+        .toFormat('jpeg')
+        .toBuffer();
 
-  const blurredFile = await uploadFile({
-    buffer: blurredBuffer,
-    contentType: req.file.mimetype,
-    metadata: {
-      userId: req.user!.userId,
-      originalFile: req.file.originalname,
-    },
-    path: `assets/${req.user!.userId}/${randomUUID()}/blurred-${req.file.originalname}`,
-  });
+      const blurredFile = await uploadFile({
+        buffer: blurredBuffer,
+        contentType: file.mimetype,
+        metadata: {
+          userId: req.user!.userId,
+          originalFile: file.originalname,
+        },
+        path: `assets/${req.user!.userId}/${randomUUID()}/blurred-${file.originalname}`,
+      });
 
-  return res.json({
-    originalUrl: originalFile.url,
-    blurredUrl: blurredFile.url,
-  });
+      return { originalFile, blurredFile };
+    }),
+  );
+
+  return res.json(uploaded);
 });
 
 export default router;

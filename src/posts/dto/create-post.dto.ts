@@ -1,7 +1,7 @@
 export interface CreatePostInput {
   caption: string;
-  imageURL: string;
-  blurredImageURL:string
+  imageUrls: string[];
+  blurredImageUrls:string[] | null
   isExclusive:boolean;
-  price:number
+  price:number | null
 }

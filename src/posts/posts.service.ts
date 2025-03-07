@@ -252,26 +252,26 @@ export const getPost = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
   const body = req.body as CreatePostInput;
-  if (!body.imageURL || !body.blurredImageURL) {
+  if (!body.blurredImageUrls || !body.imageUrls) {
     return res.status(400).json({ message: 'BODY NOT FOUND!' });
   }
   const isExclusive = body.isExclusive;
   const userId = new ObjectId(req.user!.userId);
   await posts.insertOne({
-    caption: body.caption,
-    imageURL: body.imageURL,
     userId,
     likeCount: 0,
-    commentCount: 0,
-    shareCount: 0,
     saveCount: 0,
-    createdAt: new Date(),
-    deletedAt: null,
-    isExclusive: isExclusive ?? true,
-    price: body.price ?? 200.0,
     status: false,
-    blurredImageURL: body.blurredImageURL,
+    shareCount: 0,
+    deletedAt: null,
+    commentCount: 0,
+    caption: body.caption,
+    createdAt: new Date(),
     purchasedBy: [userId],
+    isExclusive: isExclusive,
+    imageUrls: body.imageUrls,
+    price: isExclusive ?  body.price : null,
+    blurredImageUrls: isExclusive ? body.blurredImageUrls : null,
   });
   await updatePostCount(userId, 1);
 
