@@ -390,7 +390,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     channelId: channel._id,
     message: body.message,
     imageUrls: body.imageUrls,
-    blurredImageUrls:  body.blurredImageUrls,
+    blurredImageUrls: body.blurredImageUrls,
     isExclusive: isExclusive,
     price: body.price,
     senderId,
@@ -403,6 +403,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
+    purchasedBy: [senderId],
   });
 
   const newMessage = {
@@ -411,7 +412,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     imageUrls: body.imageUrls,
     blurredImageUrls: body.blurredImageUrls,
     isExclusive: isExclusive,
-    price:  body.price ,
+    price: body.price,
     senderId,
     receiverId,
     createdAt: new Date(),
@@ -482,6 +483,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
     seen: false,
     delivered: false,
     repliedTo: null,
+    purchasedBy: [forwardedMessage.senderId],
   });
   return res.json({ message: 'MESSAGE DELETED forwarded' });
 };
@@ -1187,6 +1189,7 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
+    purchasedBy: [senderId],
   });
   const replyMessage: WithId<MessagesEntity> = {
     _id: insertedId,
@@ -1206,6 +1209,7 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
+    purchasedBy: [receiverId],
   };
 
   await replies.insertOne({

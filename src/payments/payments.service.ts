@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import Stripe from 'stripe';
+import { MessagesEntity } from '../entities/messages.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { PurchasesEntity } from '../entities/purchases.entity';
@@ -16,6 +17,7 @@ const payments = db.collection<PaymentsEntity>(Collections.PAYMENTS);
 const purchases = db.collection<PurchasesEntity>(Collections.PURCHASES);
 const posts = db.collection<PostsEntity>(Collections.POSTS);
 const users = db.collection<UsersEntity>(Collections.USERS);
+const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
@@ -77,7 +79,6 @@ export const createPayment = async (req: Request, res: Response) => {
         clientSecret: paymentIntent.client_secret,
       });
     }
-    
   } catch (error) {
     console.error('Payment Error:', error);
     return res.status(402).json({ message: 'FAILED TO CREATE PAYMENT!' });
@@ -107,9 +108,8 @@ export const webhook = async (req: Request, res: Response) => {
     const userId = new ObjectId(paymentIntent.metadata.userId);
     const contentId = new ObjectId(paymentIntent.metadata.contentId);
     const creatorId = new ObjectId(paymentIntent.metadata.creatorId);
-
     await payments.insertOne({
-      customerId: userId,
+      userId: userId,
       contentId,
       creatorId,
       amount: paymentIntent.amount,
@@ -125,9 +125,20 @@ export const webhook = async (req: Request, res: Response) => {
       userId,
     });
 
-    await purchases.findOne({ userId: userId, contentId: contentId });
-    const post = await posts.findOne({ _id: contentId });
-    return res.json(post);
+    const contentIdBelongsToPost = await posts.findOne({ _id: contentId });
+    if (contentIdBelongsToPost) {
+      await posts.findOneAndUpdate(
+        { _id: contentId },
+        { $addToSet: { purchasedBy: userId } },
+        { returnDocument: 'after' },
+      );
+    } else {
+      await messages.findOneAndUpdate(
+        { _id: contentId },
+        { $addToSet: { purchasedBy: userId } },
+        { returnDocument: 'after' },
+      );
+    }
   }
 };
 
@@ -150,7 +161,6 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
         email: user!.email,
         metadata: { userId: userId.toString() },
       });
-      console.log(customer);
       customerId = customer.id;
       await userProfiles.updateOne({ userId: userId }, { $set: { stripeCustomerId: customer.id } });
     }

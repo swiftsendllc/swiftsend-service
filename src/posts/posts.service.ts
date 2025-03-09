@@ -58,7 +58,22 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
           ],
         },
       },
-
+      {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: '_id',
+          foreignField: 'contentId',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+          as: '_purchased',
+        },
+      },
       {
         $set: {
           isLiked: {
@@ -66,6 +81,16 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
           },
           isSaved: {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
+          },
+          isPurchased: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+          imageUrls: {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              '$imageUrls',
+              '$blurredImageUrls',
+            ],
           },
         },
       },
@@ -195,6 +220,22 @@ export const getPost = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: '_id',
+          foreignField: 'contentId',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+          as: '_purchased',
+        },
+      },
+      {
         $set: {
           isLiked: {
             $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
@@ -204,6 +245,20 @@ export const getPost = async (req: Request, res: Response) => {
           },
           isFollowing: {
             $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
+          },
+          isPurchased: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+        },
+      },
+      {
+        $set: {
+          imageUrls: {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              '$imageUrls',
+              '$blurredImageUrls',
+            ],
           },
         },
       },
@@ -256,6 +311,11 @@ export const createPost = async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'BODY NOT FOUND!' });
   }
   const isExclusive = body.isExclusive;
+
+  if (isExclusive && body.price! < 200) {
+    return res.status(400).json({ message: 'MINIMUM PRICE IS 200 INR' });
+  }
+
   const userId = new ObjectId(req.user!.userId);
   await posts.insertOne({
     userId,
@@ -270,7 +330,7 @@ export const createPost = async (req: Request, res: Response) => {
     purchasedBy: [userId],
     isExclusive: isExclusive,
     imageUrls: body.imageUrls,
-    price: isExclusive ?  body.price : null,
+    price: isExclusive ? body.price : null,
     blurredImageUrls: isExclusive ? body.blurredImageUrls : null,
   });
   await updatePostCount(userId, 1);
@@ -397,7 +457,7 @@ export const savePost = async (req: Request, res: Response) => {
     { returnDocument: 'after' },
   );
 
-  return res.json({ ...post, isSaved: false });
+  return res.json({ ...post, isSaved: true });
 };
 
 export const getSaves = async (req: Request, res: Response) => {
@@ -431,7 +491,7 @@ export const getSaves = async (req: Request, res: Response) => {
   return res.json(save);
 };
 
-export const getLike = async (req: Request, res: Response) => {
+export const getPostsLikedByYou = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const like = await likes
     .aggregate([
@@ -461,7 +521,7 @@ export const getLike = async (req: Request, res: Response) => {
   return res.json(like);
 };
 
-export const getComment = async (req: Request, res: Response) => {
+export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const comment = await comments
     .aggregate([
@@ -495,7 +555,7 @@ export const sharePost = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const getLikes = async (req: Request, res: Response) => {
+export const getPostLikes = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const liked = await likes
     .aggregate([
@@ -591,6 +651,22 @@ export const timeline = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
+          from: Collections.PURCHASES,
+          localField: '_id',
+          foreignField: 'contentId',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+            {
+              $limit: 1,
+            },
+          ],
+          as: '_purchased',
+        },
+      },
+      {
+        $lookup: {
           from: Collections.USER_PROFILES,
           localField: 'userId',
           foreignField: 'userId',
@@ -610,6 +686,20 @@ export const timeline = async (req: Request, res: Response) => {
           },
           isFollowing: {
             $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
+          },
+          isPurchased: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+        },
+      },
+      {
+        $set: {
+          imageUrls: {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              '$imageUrls',
+              '$blurredImageUrls',
+            ],
           },
         },
       },

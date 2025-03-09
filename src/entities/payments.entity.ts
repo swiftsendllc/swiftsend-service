@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 export interface PaymentsEntity {
-  customerId: ObjectId;
+  userId: ObjectId;
   creatorId: ObjectId;
   contentId: ObjectId;
   stripe_payment_id: string;
