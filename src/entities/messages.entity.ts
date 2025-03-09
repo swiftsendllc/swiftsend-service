@@ -17,4 +17,5 @@ export interface MessagesEntity {
   delivered: boolean;
   seen: boolean;
   repliedTo: ObjectId | null;
+  purchasedBy:ObjectId[]
 }

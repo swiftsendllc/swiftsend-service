@@ -10,12 +10,12 @@ import {
   deleteComment,
   deletePost,
   editPost,
-  getComment,
+  getCommentsCreatedByYou,
   getCreatorPosts,
-  getLike,
-  getLikes,
   getPost,
+  getPostLikes,
   getPosts,
+  getPostsLikedByYou,
   getSaves,
   likePost,
   savePost,
@@ -51,13 +51,13 @@ router.put('/posts/:id/save', auth, savePost);
 
 router.post('/posts/:id/share', auth, sharePost);
 
-router.get('/posts/:id/likes', auth, getLikes);
+router.get('/posts/:id/likes', auth, getPostLikes);
 
-router.get('/posts/user/:userId/likes', auth, getLike);
+router.get('/posts/user/liked', auth, getPostsLikedByYou);
 
 router.get('/posts/:userId/saves', auth, getSaves);
 
-router.get('/posts/:userId/comments', auth, getComment);
+router.get('/posts/user/commented', auth, getCommentsCreatedByYou);
 
 router.post('/posts/upload', auth, upload.array('files'), async (req: Request, res) => {
   if (!req.files || req.files.length === 0) throw new Error('File is missing');
