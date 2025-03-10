@@ -249,10 +249,6 @@ export const getPost = async (req: Request, res: Response) => {
           isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
-        },
-      },
-      {
-        $set: {
           imageUrls: {
             $cond: [
               { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
@@ -690,16 +686,15 @@ export const timeline = async (req: Request, res: Response) => {
           isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
-        },
-      },
-      {
-        $set: {
           imageUrls: {
             $cond: [
               { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
               '$imageUrls',
               '$blurredImageUrls',
             ],
+          },
+          isMyPost: {
+            $cond: [{ $eq: ['$userId', userId] }, true, false],
           },
         },
       },
