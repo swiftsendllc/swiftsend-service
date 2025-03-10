@@ -386,26 +386,6 @@ export const sendMessage = async (req: Request, res: Response) => {
 
   const channel = await getOrCreateChannel(senderId, receiverId);
 
-  const { insertedId } = await messages.insertOne({
-    channelId: channel._id,
-    message: body.message,
-    imageUrls: body.imageUrls,
-    blurredImageUrls: body.blurredImageUrls,
-    isExclusive: isExclusive,
-    price: body.price,
-    senderId,
-    receiverId,
-    createdAt: new Date(),
-    deletedAt: null,
-    editedAt: null,
-    deleted: false,
-    edited: false,
-    delivered: false,
-    seen: false,
-    repliedTo: null,
-    purchasedBy: [senderId],
-  });
-
   const newMessage = {
     channelId: channel._id,
     message: body.message,
@@ -423,8 +403,11 @@ export const sendMessage = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
-    _id: insertedId,
+    purchasedBy: [senderId],
   } as WithId<MessagesEntity>;
+
+  const { insertedId } = await messages.insertOne(newMessage);
+  Object.assign(newMessage, { _id: insertedId });
 
   const receiverSocketId = receiverId.toString();
   io.to(receiverSocketId).emit('newMessage', newMessage);
@@ -527,20 +510,14 @@ export const sendMessageReactions = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'MESSAGE NOT FOUND!' });
   }
 
-  const { insertedId } = await message_reactions.insertOne({
-    userId: userId,
-    messageId,
-    reaction: body.reaction,
-    createdAt: new Date(),
-  });
-
   const reaction = {
     userId: userId,
     messageId,
     reaction: body.reaction,
     createdAt: new Date(),
-    _id: insertedId,
   } as WithId<ReactionsEntity>;
+  const { insertedId } = await message_reactions.insertOne(reaction);
+  Object.assign(reaction, { _id: insertedId });
 
   const message = await messages.findOne({ _id: messageId });
   if (message) {
@@ -734,20 +711,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const receiversId = group?.participants.filter((id) => !id.equals(senderId));
 
   if (receiversId) {
-    const { insertedId } = await groupMessages.insertOne({
-      groupId: groupId,
-      senderId: senderId,
-      receiversId: receiversId,
-      message: body.message ?? null,
-      imageURL: body.imageURL ?? null,
-      createdAt: new Date(),
-      deletedAt: null,
-      editedAt: null,
-      deleted: false,
-      edited: false,
-      repliedTo: null,
-    });
-    const groupMessage: WithId<GroupMessagesEntity> = {
+    const groupMessage = {
       groupId: groupId,
       senderId: senderId,
       receiversId: receiversId,
@@ -759,8 +723,10 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       deleted: false,
       edited: false,
       repliedTo: null,
-      _id: insertedId,
-    };
+    } as WithId<GroupMessagesEntity>;
+    const { insertedId } = await groupMessages.insertOne(groupMessage);
+    Object.assign(groupMessage, { _id: insertedId });
+
     const sender = await user_profiles.findOne({ userId: senderId });
     const receivers = receiversId.map((id) => id.toString()) as [];
     io.to(receivers).emit('groupMessage', { ...groupMessage, sender });
@@ -1120,25 +1086,21 @@ export const sendGroupReaction = async (req: Request, res: Response) => {
   const body = req.body as SendGroupReactionInput;
   const messageId = new ObjectId(body.messageId);
 
-  const { insertedId } = await groupReactions.insertOne({
-    messageId: messageId,
-    reaction: body.reaction,
-    createdAt: new Date(),
-    senderId: userId,
-  });
-  const insertedReaction: WithId<GroupReactionsEntity> = {
+  const reaction = {
     messageId: body.messageId,
     reaction: body.reaction,
     createdAt: new Date(),
     senderId: userId,
-    _id: insertedId,
-  };
+  } as WithId<GroupReactionsEntity>;
+
+  const { insertedId } = await groupReactions.insertOne(reaction);
+  Object.assign(reaction, { _id: insertedId });
 
   const groupMessage = await groupMessages.findOne({ _id: messageId, senderId: userId });
 
   const receiverSocketId: ObjectId[] = groupMessage?.receiversId || [];
   const receivers = receiverSocketId.map((id) => id.toString()) || '';
-  io.to(receivers).emit('group_message_reacted', { ...insertedReaction, isReacted: true });
+  io.to(receivers).emit('group_message_reacted', { ...reaction, isReacted: true });
 
   return res.status(200).json({ ...groupMessage, isReacted: true });
 };
@@ -1172,27 +1134,7 @@ export const sendMessageReply = async (req: Request, res: Response) => {
   const receiverId = new ObjectId(body.receiverId);
   const channel = await getOrCreateChannel(senderId, receiverId);
 
-  const { insertedId } = await messages.insertOne({
-    channelId: channel._id,
-    message: body.message,
-    imageUrls: body.imageUrls ?? null,
-    blurredImageUrls: body.blurredImageUrls ?? null,
-    isExclusive: body.isExclusive,
-    price: body.price,
-    senderId,
-    receiverId,
-    createdAt: new Date(),
-    deletedAt: null,
-    editedAt: null,
-    deleted: false,
-    edited: false,
-    delivered: false,
-    seen: false,
-    repliedTo: null,
-    purchasedBy: [senderId],
-  });
-  const replyMessage: WithId<MessagesEntity> = {
-    _id: insertedId,
+  const replyMessage = {
     channelId: channel._id,
     message: body.message,
     imageUrls: body.imageUrls ?? null,
@@ -1209,8 +1151,11 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
-    purchasedBy: [receiverId],
-  };
+    purchasedBy: [senderId],
+  } as WithId<MessagesEntity>;
+
+  const { insertedId } = await messages.insertOne(replyMessage);
+  Object.assign(replyMessage, { _id: insertedId });
 
   await replies.insertOne({
     replierId: senderId,
@@ -1236,7 +1181,7 @@ export const sendGroupMessageReply = async (req: Request, res: Response) => {
   const group = await groups.findOne({ _id: groupId });
   const receiversId = group?.participants.filter((id) => !id.equals(senderId));
   if (receiversId) {
-    const { insertedId } = await groupMessages.insertOne({
+    const replyMessage = {
       senderId,
       receiversId,
       groupId: groupId,
@@ -1248,21 +1193,11 @@ export const sendGroupMessageReply = async (req: Request, res: Response) => {
       imageURL: body.imageURL,
       message: body.message,
       repliedTo: null,
-    });
-    const replyMessage: WithId<GroupMessagesEntity> = {
-      _id: insertedId,
-      senderId,
-      receiversId,
-      groupId: groupId,
-      createdAt: new Date(),
-      deleted: false,
-      edited: false,
-      editedAt: null,
-      deletedAt: null,
-      imageURL: body.imageURL,
-      message: body.message,
-      repliedTo: null,
-    };
+    } as WithId<GroupMessagesEntity>;
+
+    const { insertedId } = await groupMessages.insertOne(replyMessage);
+    Object.assign(replyMessage, { _id: insertedId });
+
     await groupMessages.updateOne({ _id: messageId }, { $set: { repliedTo: insertedId } });
     await groupReplies.insertOne({
       imageURL: body.imageURL,

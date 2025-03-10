@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId, WithId } from 'mongodb';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
+import { PostsEntity } from '../entities/posts.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
@@ -10,6 +11,7 @@ import { UpdateUserInput } from './dto/update-user.dto';
 
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
+const posts = db.collection<PostsEntity>(Collections.POSTS);
 
 export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfiles.updateOne({ userId }, { $inc: { postCount: count } });
@@ -219,31 +221,34 @@ export const getFollowers = async (req: Request, res: Response) => {
       };
     }),
   );
-
   return res.json(data);
 };
 
 export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
+
+  
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow  yourself!" });
   }
+  const isFollowing = await followers.findOne({ followedUserId, followingUserId });
+  if(isFollowing) {
+    return res.status(400).json({message:"ALREADY FOLLOWED"})
+  }
+    const followedProfile = {
+      followingUserId,
+      followedUserId,
+      createdAt: new Date(),
+      deletedAt: null,
+    } as WithId<FollowersEntity>;
+    const { insertedId } = await followers.insertOne(followedProfile);
+    Object.assign(followProfile, { _id: insertedId });
 
-  const isFollowed = await followers.findOne({ followingUserId, followedUserId });
-  if (isFollowed) return res.json({ message: 'ok' });
+    await updateFollowerCount(followedUserId, 1);
+    await updateFollowingCount(followingUserId, 1);
 
-  await followers.insertOne({
-    followingUserId,
-    followedUserId,
-    createdAt: new Date(),
-    deletedAt: null,
-  });
-
-  await updateFollowerCount(followedUserId, 1);
-  await updateFollowingCount(followingUserId, 1);
-
-  return res.json({ message: 'Followed successfully' });
+    return res.status(200).json({ ...followedProfile, isFollowing: true });
 };
 
 export const unFollowProfile = async (req: Request, res: Response) => {
@@ -254,12 +259,10 @@ export const unFollowProfile = async (req: Request, res: Response) => {
     followingUserId,
     followedUserId,
   });
-  const isFollowed = await followers.findOne({ followingUserId, followedUserId });
-  if (isFollowed) return res.status(200).json({ message: 'User is followed' });
   if (!deletedCount) return res.status(400).json({ message: 'Nothing to unFollow!' });
 
   await updateFollowerCount(followedUserId, -1);
   await updateFollowingCount(followingUserId, -1);
 
-  return res.json({ message: 'ok' });
+  return res.status(200).json({ message: 'UNFOLLOWED' });
 };
