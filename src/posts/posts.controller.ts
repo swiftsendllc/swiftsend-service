@@ -12,11 +12,11 @@ import {
   editPost,
   getCommentsCreatedByYou,
   getCreatorPosts,
+  getLikedPosts,
   getPost,
   getPostLikes,
   getPosts,
-  getPostsLikedByYou,
-  getSaves,
+  getSavedPosts,
   likePost,
   savePost,
   sharePost,
@@ -53,9 +53,9 @@ router.post('/posts/:id/share', auth, sharePost);
 
 router.get('/posts/:id/likes', auth, getPostLikes);
 
-router.get('/posts/user/liked', auth, getPostsLikedByYou);
+router.get('/posts/user/liked', auth, getLikedPosts);
 
-router.get('/posts/:userId/saves', auth, getSaves);
+router.get('/posts/user/saved', auth, getSavedPosts);
 
 router.get('/posts/user/commented', auth, getCommentsCreatedByYou);
 

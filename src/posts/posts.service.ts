@@ -151,7 +151,7 @@ export const getPost = async (req: Request, res: Response) => {
           as: '_likes',
           pipeline: [
             {
-              $match: { userId },
+              $match: { userId: userId },
             },
             {
               $limit: 1,
@@ -167,7 +167,7 @@ export const getPost = async (req: Request, res: Response) => {
           as: '_saves',
           pipeline: [
             {
-              $match: { userId },
+              $match: { userId: userId },
             },
             {
               $limit: 1,
@@ -297,7 +297,7 @@ export const getPost = async (req: Request, res: Response) => {
       isOnline: onlineUsers.has(result.user.userId.toString()),
     },
   };
-
+  console.log('The purchased post is:', data);
   return res.json(data);
 };
 
@@ -331,7 +331,7 @@ export const createPost = async (req: Request, res: Response) => {
   });
   await updatePostCount(userId, 1);
 
-  return res.json({ message: 'ok' });
+  return res.json({ message: 'POST IS CREATED' });
 };
 
 export const deletePost = async (req: Request, res: Response) => {
@@ -341,7 +341,7 @@ export const deletePost = async (req: Request, res: Response) => {
 
   await updatePostCount(userId, -1);
 
-  return res.json({ message: 'ok' });
+  return res.json({ message: 'POST IS DELETED' });
 };
 
 export const editPost = async (req: Request, res: Response) => {
@@ -349,7 +349,7 @@ export const editPost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
   await posts.updateOne({ userId, _id: postId }, { $set: { caption: body.caption } });
-  return res.json({ message: 'ok' });
+  return res.json({ message: 'POST IS EDITED' });
 };
 
 export const likePost = async (req: Request, res: Response) => {
@@ -456,12 +456,12 @@ export const savePost = async (req: Request, res: Response) => {
   return res.json({ ...post, isSaved: true });
 };
 
-export const getSaves = async (req: Request, res: Response) => {
+export const getSavedPosts = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const save = await saves
+  const savedPosts = await saves
     .aggregate([
       {
-        $match: { userId },
+        $match: { userId: userId },
       },
       {
         $lookup: {
@@ -472,24 +472,54 @@ export const getSaves = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: 'postId',
+          foreignField: 'contentId',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+          ],
+          as: '_purchased',
+        },
+      },
+      {
         $unwind: {
           path: '$post',
-          preserveNullAndEmptyArrays: false,
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $set: {
+          imageUrls: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+          },
         },
       },
       {
         $replaceRoot: {
-          newRoot: '$post',
+          newRoot: {
+            $mergeObjects: [
+              '$post',
+              {
+                imageUrls: {
+                  $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+                },
+              },
+            ],
+          },
         },
       },
     ])
     .toArray();
-  return res.json(save);
+  console.log({ ...savedPosts });
+  return res.json(savedPosts);
 };
 
-export const getPostsLikedByYou = async (req: Request, res: Response) => {
+export const getLikedPosts = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const like = await likes
+  const likedPosts = await likes
     .aggregate([
       {
         $match: { userId },
@@ -508,18 +538,27 @@ export const getPostsLikedByYou = async (req: Request, res: Response) => {
         },
       },
       {
+        $set: {
+          imageUrls: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+          },
+        },
+      },
+      {
         $replaceRoot: {
-          newRoot: '$post',
+          newRoot: {
+            $mergeObjects: ['$post', { imageUrls: '$imageUrls' }],
+          },
         },
       },
     ])
     .toArray();
-  return res.json(like);
+  return res.json(likedPosts);
 };
 
 export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const comment = await comments
+  const commentsByYou = await comments
     .aggregate([
       {
         $match: { userId },
@@ -537,7 +576,7 @@ export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  return res.json(comment);
+  return res.json(commentsByYou);
 };
 
 export const sharePost = async (req: Request, res: Response) => {
@@ -553,7 +592,7 @@ export const sharePost = async (req: Request, res: Response) => {
 
 export const getPostLikes = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
-  const liked = await likes
+  const postLikes = await likes
     .aggregate([
       {
         $match: {
@@ -581,7 +620,7 @@ export const getPostLikes = async (req: Request, res: Response) => {
     ])
     .toArray();
 
-  return res.json({ liked });
+  return res.json({ postLikes });
 };
 
 export const timeline = async (req: Request, res: Response) => {
@@ -693,6 +732,7 @@ export const timeline = async (req: Request, res: Response) => {
               '$blurredImageUrls',
             ],
           },
+
           isMyPost: {
             $cond: [{ $eq: ['$userId', userId] }, true, false],
           },
