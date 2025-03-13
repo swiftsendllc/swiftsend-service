@@ -297,7 +297,6 @@ export const getPost = async (req: Request, res: Response) => {
       isOnline: onlineUsers.has(result.user.userId.toString()),
     },
   };
-  console.log('The purchased post is:', data);
   return res.json(data);
 };
 
@@ -346,7 +345,7 @@ export const deletePost = async (req: Request, res: Response) => {
 
 export const editPost = async (req: Request, res: Response) => {
   const body = req.body as UpdatePostInput;
-  const postId = new ObjectId(req.params.id);
+  const postId = new ObjectId(req.query.postId as string);
   const userId = new ObjectId(req.user!.userId);
   await posts.updateOne({ userId, _id: postId }, { $set: { caption: body.caption } });
   return res.json({ message: 'POST IS EDITED' });
@@ -513,7 +512,6 @@ export const getSavedPosts = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
-  console.log({ ...savedPosts });
   return res.json(savedPosts);
 };
 
@@ -533,6 +531,19 @@ export const getLikedPosts = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: 'postId',
+          foreignField: 'contentId',
+          as: '_purchased',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+          ],
+        },
+      },
+      {
         $unwind: {
           path: '$post',
         },
@@ -540,14 +551,29 @@ export const getLikedPosts = async (req: Request, res: Response) => {
       {
         $set: {
           imageUrls: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$$post.userId', userId] }] },
+              '$post.imageUrls',
+              '$post.blurredImageUrls',
+            ],
           },
         },
       },
       {
         $replaceRoot: {
           newRoot: {
-            $mergeObjects: ['$post', { imageUrls: '$imageUrls' }],
+            $mergeObjects: [
+              '$post',
+              {
+                imageUrls: {
+                  $cond: [
+                    { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$$post.userId', userId] }] },
+                    '$post.imageUrls',
+                    '$post.blurredImageUrls',
+                  ],
+                },
+              },
+            ],
           },
         },
       },

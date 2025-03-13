@@ -39,7 +39,7 @@ router.post('/posts/create', auth, createPost);
 
 router.delete('/posts/:id/delete', auth, deletePost);
 
-router.patch('/posts/:id/edit', auth, editPost);
+router.patch('/posts/:postId/edit', auth, editPost);
 
 router.put('/posts/:id/like', auth, likePost);
 
