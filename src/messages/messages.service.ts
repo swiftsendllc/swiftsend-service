@@ -564,7 +564,7 @@ export const createGroup = async (req: Request, res: Response) => {
     groupName: body.groupName,
     description: body.description,
     groupAvatar: body.groupAvatar || null,
-    admin: adminId,
+    adminId: adminId,
     moderators: [adminId],
   };
 
@@ -704,6 +704,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   const body = req.body as SendGroupMessageInput;
   const groupId = new ObjectId(req.params.groupId);
   const group = await groups.findOne({ _id: groupId });
+  const price = body.price * 100;
   const isParticipant = group?.participants.includes(senderId);
   if (!isParticipant) {
     return res.status(400).json({ message: 'YOU ARE NOT AUTHORIZED TO MESSAGE!' });
@@ -723,6 +724,9 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
       deleted: false,
       edited: false,
       repliedTo: null,
+      isExclusive: body.isExclusive ?? false,
+      price: price ?? null,
+      purchasedBy: [senderId],
     } as WithId<GroupMessagesEntity>;
     const { insertedId } = await groupMessages.insertOne(groupMessage);
     Object.assign(groupMessage, { _id: insertedId });
@@ -865,6 +869,7 @@ export const getGroupById = async (req: Request, res: Response) => {
   if (!ObjectId.isValid(req.params.groupId)) {
     return res.status(200).json({ message: 'INVALID ID!' });
   }
+  const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const [group] = await groups
     .aggregate([
@@ -877,6 +882,25 @@ export const getGroupById = async (req: Request, res: Response) => {
           localField: 'participants',
           foreignField: 'userId',
           as: 'members',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'admin',
+          foreignField: 'userId',
+          as: '_admin',
+        },
+      },
+      {
+        $unwind: {
+          path: '$_admin',
+        },
+      },
+      {
+        $set: {
+          isAdmin: { $eq: ['$admin', userId] },
+          isModerator: { $in: [userId, '$moderators'] },
         },
       },
     ])
@@ -958,7 +982,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
   if (!ObjectId.isValid(req.params.groupId || req.params.moderatorId)) {
     return res.status(400).json({ message: 'INVALID ID' });
   }
-  const adminId = new ObjectId(req.user!.userId);
+  const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const moderatorId = new ObjectId(req.params.moderatorId);
 
@@ -968,7 +992,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'GROUP NOT FOUND!' });
   }
 
-  const isAdmin = group.admin.equals(adminId);
+  const isAdmin = group.adminId.equals(userId);
   const isModerator = group.moderators.map((id) => id.equals(moderatorId));
 
   if (!isAdmin) {
@@ -976,7 +1000,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
   }
 
   if (!isModerator) {
-    return res.status(400).json({ message: 'UPDATE TO MODERATOR TO SET AS A ADMIN' });
+    return res.status(400).json({ message: 'UPDATE MEMBER TO MODERATOR TO SET AS A ADMIN' });
   }
 
   const updatedGroup = await groups.findOneAndUpdate(
@@ -1178,6 +1202,7 @@ export const sendGroupMessageReply = async (req: Request, res: Response) => {
   const groupId = new ObjectId(req.params.groupId);
   const body = req.body as SendGroupMessageReplyInput;
   const messageId = new ObjectId(body.messageId);
+  const price = body.price * 100;
   const group = await groups.findOne({ _id: groupId });
   const receiversId = group?.participants.filter((id) => !id.equals(senderId));
   if (receiversId) {
@@ -1193,6 +1218,8 @@ export const sendGroupMessageReply = async (req: Request, res: Response) => {
       imageURL: body.imageURL,
       message: body.message,
       repliedTo: null,
+      isExclusive: body.isExclusive ?? null,
+      price: price ?? null,
     } as WithId<GroupMessagesEntity>;
 
     const { insertedId } = await groupMessages.insertOne(replyMessage);

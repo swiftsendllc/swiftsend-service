@@ -4,4 +4,6 @@ export interface SendGroupMessageReplyInput {
   message: string | null;
   imageURL: string | null;
   messageId: ObjectId;
+  price:number;
+  isExclusive:boolean
 }

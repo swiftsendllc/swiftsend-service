@@ -5,7 +5,7 @@ export interface GroupsEntity {
   groupName: string;
   description: string;
   createdAt: Date;
-  admin: ObjectId;
+  adminId: ObjectId;
   participants: ObjectId[];
   moderators: ObjectId[];
 }
