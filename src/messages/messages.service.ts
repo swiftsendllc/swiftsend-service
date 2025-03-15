@@ -573,13 +573,16 @@ export const createGroup = async (req: Request, res: Response) => {
 };
 
 export const updateGroup = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.groupId)) {
+    return res.status(400).json({ message: 'INVALID GROUP ID!' });
+  }
   const adminId = new ObjectId(req.user!.userId);
   const body = req.body as UpdateGroupInput;
   console.log(req.params.groupId);
   const groupId = new ObjectId(req.params.groupId);
 
   const group = await groups.findOneAndUpdate(
-    { _id: groupId, admin: adminId },
+    { _id: groupId, adminId: adminId },
     {
       $set: shake({
         groupName: body.groupName,
@@ -589,8 +592,7 @@ export const updateGroup = async (req: Request, res: Response) => {
     },
     { returnDocument: 'after' },
   );
-  const result = { ...group };
-  return res.status(200).json(result);
+  return res.status(200).json({ ...group });
 };
 
 export const deleteGroup = async (req: Request, res: Response) => {
@@ -608,25 +610,23 @@ export const deleteGroup = async (req: Request, res: Response) => {
 };
 
 export const addMemberToGroup = async (req: Request, res: Response) => {
-  const adminId = new ObjectId(req.user!.userId);
-
+  const userId = new ObjectId(req.user!.userId);
   const memberId = new ObjectId(req.params.memberId);
   const groupId = new ObjectId(req.params.groupId);
 
   const group = await groups.findOne({ _id: groupId });
 
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
-  const members = await groups.findOne({ _id: groupId, participants: memberId });
+  const isMember = await groups.findOne({ _id: groupId, participants: { $in: [memberId] } });
 
-  if (members) {
+  if (isMember) {
     return res.status(400).json({ message: 'USER ALREADY EXISTS IN THE GROUP!' });
   } else {
     const newMember = await groups.findOneAndUpdate(
-      { _id: groupId, participants: adminId },
+      { _id: groupId, participants: { $in: [userId] } },
       { $addToSet: { participants: memberId } },
       { returnDocument: 'after' },
     );
-
     return res.status(200).json(newMember);
   }
 };
@@ -642,18 +642,14 @@ export const updateMemberToModerator = async (req: Request, res: Response) => {
   if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
 
   if (group) {
-    const members = await groups.findOne({ _id: groupId, participants: memberId });
-    const moderators = await groups.findOne({ _id: groupId, moderators: memberId });
+    const isMember = await groups.findOne({ _id: groupId, participants: memberId });
+    const isModerator = await groups.findOne({ _id: groupId, moderators: memberId });
 
-    if (moderators) return res.status(400).json({ message: "ALREADY IN YOUR MODERATOR\'S LIST" });
+    if (isModerator) return res.status(400).json({ message: "ALREADY IN YOUR MODERATOR\'S LIST" });
 
-    if (members) {
-      const newModerator = await groups.findOneAndUpdate(
-        { _id: groupId, admin: adminId },
-        { $addToSet: { moderators: memberId } },
-        { returnDocument: 'after' },
-      );
-      return res.status(200).json(newModerator);
+    if (isMember) {
+      await groups.updateOne({ _id: groupId, adminId: adminId }, { $addToSet: { moderators: memberId } });
+      return res.status(200).json({ message: 'PROMOTED' });
     } else {
       return res.status(200).json({ message: "THE USER IS NOT IN YOUR PARTICIPANT'S LIST!" });
     }
@@ -887,7 +883,7 @@ export const getGroupById = async (req: Request, res: Response) => {
       {
         $lookup: {
           from: Collections.USER_PROFILES,
-          localField: 'admin',
+          localField: 'adminId',
           foreignField: 'userId',
           as: '_admin',
         },
@@ -899,7 +895,7 @@ export const getGroupById = async (req: Request, res: Response) => {
       },
       {
         $set: {
-          isAdmin: { $eq: ['$admin', userId] },
+          isAdmin: { $eq: ['$adminId', userId] },
           isModerator: { $in: [userId, '$moderators'] },
         },
       },
@@ -1005,7 +1001,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
 
   const updatedGroup = await groups.findOneAndUpdate(
     { _id: groupId },
-    { $set: { admin: moderatorId } },
+    { $set: { adminId: moderatorId } },
     { returnDocument: 'after' },
   );
 
@@ -1025,23 +1021,16 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'GROUP NOT FOUND!❌' });
   }
 
-  const moderators = await groups.findOne({ _id: groupId, moderators: { $in: [memberId] } });
-  if (moderators) {
-    const updatedMembers = await groups.findOneAndUpdate(
-      { _id: groupId, admin: adminId },
+  const isModerator = await groups.findOne({ _id: groupId, moderators: { $in: [memberId] } });
+  if (isModerator) {
+    await groups.updateOne(
+      { _id: groupId, adminId: adminId },
       { $pull: { participants: memberId, moderators: memberId } },
-      { returnDocument: 'after' },
     );
-
-    return res.status(200).json(updatedMembers);
+    return res.status(200).json({ message: 'KICKED IN THE ASS #MODERATOR' });
   } else {
-    const updatedParticipants = await groups.findOneAndUpdate(
-      { _id: groupId, admin: adminId },
-      { $pull: { participants: memberId, moderators: memberId } },
-      { returnDocument: 'after' },
-    );
-
-    return res.status(200).json(updatedParticipants);
+    await groups.updateOne({ _id: groupId, adminId: adminId }, { $pull: { participants: memberId } });
+    return res.status(200).json({ message: 'KICKED IN THE ASS 🍑' });
   }
 };
 
@@ -1055,7 +1044,7 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
   const moderators = await groups.findOne({ _id: groupId, moderators: { $in: membersId } });
   if (moderators) {
     await groups.updateMany(
-      { _id: groupId, admin: adminId },
+      { _id: groupId, adminId: adminId },
       // @ts-expect-error
       { $pull: { participants: { $in: membersId }, moderators: { $in: membersId } } },
       { returnDocument: 'after' },
@@ -1064,7 +1053,7 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'KICKED IN THE ASS 🍑' });
   } else {
     const kickedParticipants = await groups.findOneAndUpdate(
-      { _id: groupId, admin: adminId },
+      { _id: groupId, adminId: adminId },
       // @ts-expect-error
       { $pull: { participants: { $in: membersId } } },
       { returnDocument: 'after' },
@@ -1078,7 +1067,7 @@ export const demoteModeratorToMember = async (req: Request, res: Response) => {
   const moderatorId = new ObjectId(req.params.moderatorId);
   const groupId = new ObjectId(req.params.groupId);
   const demoteModerator = await groups.findOneAndUpdate(
-    { _id: groupId, admin: adminId },
+    { _id: groupId, adminId: adminId },
     { $pull: { moderators: moderatorId } },
     { returnDocument: 'after' },
   );

@@ -228,7 +228,7 @@ export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  
+
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow  yourself!" });
   }
@@ -243,7 +243,7 @@ export const followProfile = async (req: Request, res: Response) => {
       deletedAt: null,
     } as WithId<FollowersEntity>;
     const { insertedId } = await followers.insertOne(followedProfile);
-    Object.assign(followProfile, { _id: insertedId });
+    Object.assign(followedProfile, { _id: insertedId });
 
     await updateFollowerCount(followedUserId, 1);
     await updateFollowingCount(followingUserId, 1);
