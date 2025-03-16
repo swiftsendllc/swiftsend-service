@@ -95,6 +95,7 @@ export const getChannels = async (req: Request, res: Response) => {
           },
         },
       },
+
       {
         $lookup: {
           from: Collections.MESSAGES,
@@ -116,6 +117,34 @@ export const getChannels = async (req: Request, res: Response) => {
       {
         $unwind: {
           path: '$lastMessage',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: 'lastMessage._id',
+          foreignField: 'contentId',
+          as: '_purchased',
+        },
+      },
+      {
+        $set: {
+          'isPurchased': {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+          'lastMessage.imageUrls': {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$lastMessage.senderId', senderId] }] },
+              '$lastMessage.imageUrls',
+              '$lastMessage.blurredImageUrls',
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          '_purchased': 0,
+          'lastMessage.blurredImageUrls': 0,
         },
       },
       {
@@ -194,6 +223,12 @@ export const getChannelById = async (req: Request, res: Response) => {
         },
       },
       {
+        $unwind: {
+          path: '$lastMessage',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $lookup: {
           from: Collections.REPLIES,
           localField: '_id',
@@ -202,9 +237,31 @@ export const getChannelById = async (req: Request, res: Response) => {
         },
       },
       {
-        $unwind: {
-          path: '$lastMessage',
-          preserveNullAndEmptyArrays: true,
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: 'lastMessage._id',
+          foreignField: 'contentId',
+          as: '_purchased',
+        },
+      },
+      {
+        $set: {
+          'isPurchased': {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+          'lastMessage.imageUrls': {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$lastMessage.senderId', senderId] }] },
+              '$lastMessage.imageUrls',
+              '$lastMessage.blurredImageUrls',
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          '_purchased': 0,
+          'lastMessage.blurredImageUrls': 0,
         },
       },
     ])
@@ -230,7 +287,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
     return res.status(404).json({ error: 'The channel is not found!' });
   }
   const channelId = new ObjectId(req.params.channelId);
-
+  const userId = new ObjectId(req.user!.userId);
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = parseInt(req.query.offset as string) || 0;
 
@@ -284,6 +341,37 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           foreignField: 'messageId',
           as: 'reactions',
           pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }],
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.PURCHASES,
+          localField: '_id',
+          foreignField: 'contentId',
+          as: '_purchased',
+        },
+      },
+      {
+        $set: {
+          isUser: {
+            $cond: [{ $eq: ['$senderId', userId] }, true, false],
+          },
+          isPurchased: {
+            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+          },
+          imageUrls: {
+            $cond: [
+              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$senderId', userId] }] },
+              '$imageUrls',
+              '$blurredImageUrls',
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          blurredImageUrls: 0,
+          _purchased:0
         },
       },
       {
@@ -621,14 +709,13 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
 
   if (isMember) {
     return res.status(400).json({ message: 'USER ALREADY EXISTS IN THE GROUP!' });
-  } else {
-    const newMember = await groups.findOneAndUpdate(
-      { _id: groupId, participants: { $in: [userId] } },
-      { $addToSet: { participants: memberId } },
-      { returnDocument: 'after' },
-    );
-    return res.status(200).json(newMember);
   }
+  const updatedGroup = await groups.findOneAndUpdate(
+    { _id: groupId, participants: { $in: [userId] } },
+    { $addToSet: { participants: memberId } },
+    { returnDocument: 'after' },
+  );
+  return res.status(200).json({ ...updatedGroup });
 };
 
 export const updateMemberToModerator = async (req: Request, res: Response) => {
