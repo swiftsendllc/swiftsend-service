@@ -5,6 +5,7 @@ import { MessagesEntity } from '../entities/messages.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { PurchasesEntity } from '../entities/purchases.entity';
+import { SubscriptionsEntity } from '../entities/subscriptions.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
@@ -12,6 +13,7 @@ import { Collections, ENV } from '../util/constants';
 import { AttachPaymentMethodInput } from './dto/attach-payment.dto';
 import { ConfirmCardInput } from './dto/confirm-card.dto';
 import { CreatePaymentInput } from './dto/create-payment.dto';
+import { CreateSubscriptions } from './dto/create-subscription.dto';
 
 const payments = db.collection<PaymentsEntity>(Collections.PAYMENTS);
 const purchases = db.collection<PurchasesEntity>(Collections.PURCHASES);
@@ -19,6 +21,7 @@ const posts = db.collection<PostsEntity>(Collections.POSTS);
 const users = db.collection<UsersEntity>(Collections.USERS);
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
+const subscriptions = db.collection<SubscriptionsEntity>(Collections.SUBSCRIPTIONS);
 
 const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
   apiVersion: '2025-02-24.acacia',
@@ -28,6 +31,7 @@ const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
   },
   typescript: true,
 });
+const returnUrl = ENV('DOMAIN');
 
 export const createPayment = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
@@ -54,7 +58,7 @@ export const createPayment = async (req: Request, res: Response) => {
       confirm: true,
       description: 'Purchase',
       capture_method: 'automatic',
-      return_url: 'http://localhost:3000',
+      return_url: returnUrl,
       metadata: {
         userId: userId.toString(),
         contentId: contentId.toString(),
@@ -68,7 +72,7 @@ export const createPayment = async (req: Request, res: Response) => {
           postal_code: '74333',
           line1: '123 street',
         },
-        name: 'Chris Evans',
+        name: userProfile!.fullName,
       },
     });
     console.log('The last payment error is:', paymentIntent.last_payment_error);
@@ -89,6 +93,8 @@ export const webhook = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
   const endPoint = ENV('STRIPE_WEBHOOK_SECRET_KEY') as string;
   let event: Stripe.Event;
+  let status: Stripe.Subscription.Status;
+  let subscription: Stripe.Subscription;
 
   if (!sig && !endPoint) {
     return res.status(400).json({ message: 'Missing webhook!' });
@@ -139,6 +145,19 @@ export const webhook = async (req: Request, res: Response) => {
         { returnDocument: 'after' },
       );
     }
+  } else if (eventType === 'customer.subscription.created') {
+    subscription = data.object as Stripe.Subscription;
+    status = subscription.status as Stripe.Subscription.Status;
+    const sub_userId = new ObjectId(subscription.metadata.userId);
+    const sub_creatorId = new ObjectId(subscription.metadata.creatorId);
+    await subscriptions.insertOne({
+      userId: sub_userId,
+      creatorId: sub_creatorId,
+      expiresAt: new Date(subscription.current_period_end),
+      startedAt: new Date(subscription.start_date),
+      status: status,
+      stripe_subscription_id: subscription.id,
+    });
   }
 };
 
@@ -170,7 +189,7 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
       customer: customerId,
       payment_method: paymentMethodId,
       usage: 'off_session',
-      return_url: 'http://localhost:3000',
+      return_url: returnUrl,
     });
 
     if (intentResult.status === 'succeeded') {
@@ -226,4 +245,47 @@ export const getCard = async (req: Request, res: Response) => {
     );
     return res.status(200).json({ ...paymentMethod, customer });
   }
+};
+
+export const createSubscription = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as CreateSubscriptions;
+  const creatorId = body.creatorId;
+  const priceId = ENV('STRIPE_PRICE_ID');
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      metadata: {
+        userId: userId.toString(),
+        creatorId: creatorId,
+      },
+      line_items: [
+        {
+          quantity: 1,
+          price: priceId,
+        },
+      ],
+    });
+    return res.status(200).json({ sessionUrl: session.url, clientSecret: session.client_secret });
+  } catch (error) {
+    console.log('Subscription error:', error);
+    return res.status(400).json(error);
+  }
+};
+
+export const customerPortal = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const userProfile = await userProfiles.findOne({ userId: userId });
+  if (!userProfile) {
+    return res.status(404).json({ message: 'User not found!' });
+  }
+  if (!userProfile.stripeCustomerId) {
+    return res.status(400).json({ message: 'Stripe customer id not found!' });
+  }
+  const customerId = userProfile.stripeCustomerId;
+  const portalSession = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  });
+  return res.status(200).json({ portalSessionUrl: portalSession.url });
 };
