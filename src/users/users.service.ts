@@ -26,33 +26,91 @@ export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
 };
 
 export const getUserProfileByUsernameOrId = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
   const where = ObjectId.isValid(req.params.usernameOrId)
     ? { _id: new ObjectId(req.params.usernameOrId) }
     : { username: req.params.usernameOrId };
-
-  const userProfile = await userProfiles.findOne(where);
-  if (!userProfile) return res.status(404).json({ message: 'User not found' });
-
-  const loggedInUserId = new ObjectId(req.user!.userId);
-
-  const [isFollowedByMe, isFollowing] = await Promise.all([
-    followers.findOne({
-      followingUserId: loggedInUserId,
-      followedUserId: userProfile.userId,
-    }),
-    followers.findOne({
-      followingUserId: loggedInUserId,
-      followedUserId: userProfile.userId,
-    }),
-  ]);
-  const receiverSocketData = onlineUsers.get(userProfile.userId.toString());
-  return res.json({
+  const user = await userProfiles.findOne(where);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found!' });
+  }
+  const isOnline = onlineUsers.get(user.userId.toString());
+  const [userProfile] = await userProfiles
+    .aggregate([
+      {
+        $match: where,
+      },
+      {
+        $lookup: {
+          from: Collections.FOLLOWERS,
+          localField: 'userId',
+          foreignField: 'followingUserId',
+          pipeline: [
+            {
+              $match: {
+                followedUserId: userId,
+              },
+            },
+          ],
+          as: '_follower',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.FOLLOWERS,
+          localField: 'userId',
+          foreignField: 'followedUserId',
+          pipeline: [
+            {
+              $match: {
+                followingUserId: userId,
+              },
+            },
+          ],
+          as: '_following',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.SUBSCRIPTIONS,
+          localField: 'userId',
+          foreignField: 'creatorId',
+          pipeline: [
+            {
+              $match: { userId: userId },
+            },
+          ],
+          as: '_subscriptions',
+        },
+      },
+      {
+        $set: {
+          isFollowing: {
+            $cond: [{ $gt: [{ $size: '$_follower' }, 0] }, true, false],
+          },
+          isFollowedByMe: {
+            $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
+          },
+          hasSubscribed: {
+            $cond: [{ $or: [{ $gt: [{ $size: '$_subscriptions' }, 0] }, { $eq: ['$userId', userId] }] }, true, false],
+          },
+        },
+      },
+      {
+        $project: {
+          _follower: 0,
+          _following: 0,
+          _subscriptions: 0,
+        },
+      },
+    ])
+    .toArray();
+  const data = {
     ...userProfile,
-    isFollowedByMe: !!isFollowedByMe,
-    isFollowing: !!isFollowing,
-    isOnline: !!receiverSocketData,
-    lastSeen: receiverSocketData?.lastActive || new Date(),
-  });
+    isOnline: !!isOnline,
+    lastSeen: isOnline?.lastActive || new Date(),
+  };
+  return res.status(200).json(data);
 };
 
 export const getUserProfiles = async (req: Request, res: Response) => {
@@ -228,27 +286,26 @@ export const followProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow  yourself!" });
   }
   const isFollowing = await followers.findOne({ followedUserId, followingUserId });
-  if(isFollowing) {
-    return res.status(400).json({message:"ALREADY FOLLOWED"})
+  if (isFollowing) {
+    return res.status(400).json({ message: 'ALREADY FOLLOWED' });
   }
-    const followedProfile = {
-      followingUserId,
-      followedUserId,
-      createdAt: new Date(),
-      deletedAt: null,
-    } as WithId<FollowersEntity>;
-    const { insertedId } = await followers.insertOne(followedProfile);
-    Object.assign(followedProfile, { _id: insertedId });
+  const followedProfile = {
+    followingUserId,
+    followedUserId,
+    createdAt: new Date(),
+    deletedAt: null,
+  } as WithId<FollowersEntity>;
+  const { insertedId } = await followers.insertOne(followedProfile);
+  Object.assign(followedProfile, { _id: insertedId });
 
-    await updateFollowerCount(followedUserId, 1);
-    await updateFollowingCount(followingUserId, 1);
+  await updateFollowerCount(followedUserId, 1);
+  await updateFollowingCount(followingUserId, 1);
 
-    return res.status(200).json({ ...followedProfile, isFollowing: true });
+  return res.status(200).json({ ...followedProfile, isFollowing: true });
 };
 
 export const unFollowProfile = async (req: Request, res: Response) => {

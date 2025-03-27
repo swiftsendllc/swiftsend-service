@@ -93,8 +93,6 @@ export const webhook = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
   const endPoint = ENV('STRIPE_WEBHOOK_SECRET_KEY') as string;
   let event: Stripe.Event;
-  let status: Stripe.Subscription.Status;
-  let subscription: Stripe.Subscription;
 
   if (!sig && !endPoint) {
     return res.status(400).json({ message: 'Missing webhook!' });
@@ -145,19 +143,6 @@ export const webhook = async (req: Request, res: Response) => {
         { returnDocument: 'after' },
       );
     }
-  } else if (eventType === 'customer.subscription.created') {
-    subscription = data.object as Stripe.Subscription;
-    status = subscription.status as Stripe.Subscription.Status;
-    const sub_userId = new ObjectId(subscription.metadata.userId);
-    const sub_creatorId = new ObjectId(subscription.metadata.creatorId);
-    await subscriptions.insertOne({
-      userId: sub_userId,
-      creatorId: sub_creatorId,
-      expiresAt: new Date(subscription.current_period_end),
-      startedAt: new Date(subscription.start_date),
-      status: status,
-      stripe_subscription_id: subscription.id,
-    });
   }
 };
 
@@ -245,47 +230,4 @@ export const getCard = async (req: Request, res: Response) => {
     );
     return res.status(200).json({ ...paymentMethod, customer });
   }
-};
-
-export const createSubscription = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const body = req.body as CreateSubscriptions;
-  const creatorId = body.creatorId;
-  const priceId = ENV('STRIPE_PRICE_ID');
-  try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      metadata: {
-        userId: userId.toString(),
-        creatorId: creatorId,
-      },
-      line_items: [
-        {
-          quantity: 1,
-          price: priceId,
-        },
-      ],
-    });
-    return res.status(200).json({ sessionUrl: session.url, clientSecret: session.client_secret });
-  } catch (error) {
-    console.log('Subscription error:', error);
-    return res.status(400).json(error);
-  }
-};
-
-export const customerPortal = async (req: Request, res: Response) => {
-  const userId = new ObjectId(req.user!.userId);
-  const userProfile = await userProfiles.findOne({ userId: userId });
-  if (!userProfile) {
-    return res.status(404).json({ message: 'User not found!' });
-  }
-  if (!userProfile.stripeCustomerId) {
-    return res.status(400).json({ message: 'Stripe customer id not found!' });
-  }
-  const customerId = userProfile.stripeCustomerId;
-  const portalSession = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: returnUrl,
-  });
-  return res.status(200).json({ portalSessionUrl: portalSession.url });
 };
