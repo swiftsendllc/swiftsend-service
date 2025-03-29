@@ -31,7 +31,7 @@ jobs:
 
       # Step 2: Run the labeler action
       - name: Pull Request Labeler
-        uses: actions/labeler@v4
+        uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
 
