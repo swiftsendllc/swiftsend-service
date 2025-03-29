@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    open-pull-requests-limit: 5
+    versioning-strategy: 'auto'
+    labels:
+      - 'dependencies'
+      - 'security'
+    reviewers:
+      - 'arijitchhatui'
+    assignees:
+      - 'arijitchhatui'
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
