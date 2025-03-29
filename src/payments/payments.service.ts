@@ -13,7 +13,6 @@ import { Collections, ENV } from '../util/constants';
 import { AttachPaymentMethodInput } from './dto/attach-payment.dto';
 import { ConfirmCardInput } from './dto/confirm-card.dto';
 import { CreatePaymentInput } from './dto/create-payment.dto';
-import { CreateSubscriptions } from './dto/create-subscription.dto';
 
 const payments = db.collection<PaymentsEntity>(Collections.PAYMENTS);
 const purchases = db.collection<PurchasesEntity>(Collections.PURCHASES);
@@ -40,6 +39,7 @@ export const createPayment = async (req: Request, res: Response) => {
   const newAmount = body.amount * 100;
   const contentId = new ObjectId(body.contentId);
   const currency = body.currency ?? 'inr';
+  const purchaseType = req.query.purchaseType as string;
 
   try {
     const userProfile = await userProfiles.findOne({ userId: userId });
@@ -63,6 +63,7 @@ export const createPayment = async (req: Request, res: Response) => {
         userId: userId.toString(),
         contentId: contentId.toString(),
         creatorId: creatorId.toString(),
+        purchaseType: purchaseType,
       },
       shipping: {
         address: {
@@ -112,36 +113,60 @@ export const webhook = async (req: Request, res: Response) => {
     const userId = new ObjectId(paymentIntent.metadata.userId);
     const contentId = new ObjectId(paymentIntent.metadata.contentId);
     const creatorId = new ObjectId(paymentIntent.metadata.creatorId);
-    await payments.insertOne({
-      userId: userId,
-      contentId,
-      creatorId,
-      amount: paymentIntent.amount,
-      createdAt: new Date(),
-      currency: paymentIntent.currency,
-      status: paymentIntent.status,
-      stripe_payment_id: paymentIntent.id,
-    });
+    const purchaseType = paymentIntent.metadata.purchaseType;
+    switch (purchaseType) {
+      case 'post':
+        await payments.insertOne({
+          userId: userId,
+          contentId,
+          creatorId,
+          amount: paymentIntent.amount,
+          createdAt: new Date(),
+          currency: paymentIntent.currency,
+          status: paymentIntent.status,
+          stripe_payment_id: paymentIntent.id,
+        });
 
-    await purchases.insertOne({
-      contentId: contentId,
-      purchasedAt: new Date(),
-      userId,
-    });
+        await purchases.insertOne({
+          contentId: contentId,
+          purchasedAt: new Date(),
+          userId,
+        });
 
-    const contentIdBelongsToPost = await posts.findOne({ _id: contentId });
-    if (contentIdBelongsToPost) {
-      await posts.findOneAndUpdate(
-        { _id: contentId },
-        { $addToSet: { purchasedBy: userId } },
-        { returnDocument: 'after' },
-      );
-    } else {
-      await messages.findOneAndUpdate(
-        { _id: contentId },
-        { $addToSet: { purchasedBy: userId } },
-        { returnDocument: 'after' },
-      );
+        await posts.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
+        break;
+
+      case 'message':
+        await payments.insertOne({
+          userId: userId,
+          contentId,
+          creatorId,
+          amount: paymentIntent.amount,
+          createdAt: new Date(),
+          currency: paymentIntent.currency,
+          status: paymentIntent.status,
+          stripe_payment_id: paymentIntent.id,
+        });
+
+        await purchases.insertOne({
+          contentId: contentId,
+          purchasedAt: new Date(),
+          userId,
+        });
+        await messages.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
+        break;
+      case 'subscription':
+        await subscriptions.insertOne({
+          creatorId,
+          userId,
+          startedAt: new Date(),
+          expiresAt: new Date(24 * 60 * 60 * 30),
+          status: paymentIntent.status,
+          stripe_subscription_id: paymentIntent.id,
+        });
+        break;
+      default:
+        console.log('Something wrong happened!');
     }
   }
 };

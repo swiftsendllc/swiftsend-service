@@ -7,6 +7,7 @@ import { PostsEntity } from '../entities/posts.entity';
 import { SavesEntity } from '../entities/saves.entity';
 import { SharesEntity } from '../entities/shares.entity';
 import { db } from '../rdb/mongodb';
+import { redis } from '../rdb/redis';
 import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
 import { CommentPostInput } from './dto/comment-post.dto';
@@ -650,6 +651,11 @@ export const getPostLikes = async (req: Request, res: Response) => {
 };
 
 export const timeline = async (req: Request, res: Response) => {
+  const key = 'timeline-posts';
+  const cache = await redis.get(key);
+
+  if (cache) return res.json(JSON.parse(cache));
+
   const userId = new ObjectId(req.user!.userId);
   const offset = parseInt(req.query.offset as string) || 0;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -690,17 +696,12 @@ export const timeline = async (req: Request, res: Response) => {
       {
         $lookup: {
           from: Collections.FOLLOWERS,
-          let: { postUserId: '$userId' },
+          localField: 'userId',
+          foreignField: 'followedUserId',
           pipeline: [
             {
               $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$followingUserId', userId] },
-                    { $eq: ['$followedUserId', '$$postUserId'] },
-                    { $eq: ['$deletedAt', null] },
-                  ],
-                },
+                followingUserId: userId,
               },
             },
             {
@@ -746,7 +747,7 @@ export const timeline = async (req: Request, res: Response) => {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
           },
           isFollowing: {
-            $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
+            $cond: [{ $or: [{ $gt: [{ $size: '$_following' }, 0] }, { $eq: ['$userId', userId] }] }, true, false],
           },
           isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
@@ -758,7 +759,6 @@ export const timeline = async (req: Request, res: Response) => {
               '$blurredImageUrls',
             ],
           },
-
           isMyPost: {
             $cond: [{ $eq: ['$userId', userId] }, true, false],
           },
@@ -767,6 +767,10 @@ export const timeline = async (req: Request, res: Response) => {
       {
         $project: {
           _likes: 0,
+          _saves: 0,
+          _purchased: 0,
+          _following: 0,
+          blurredImageUrls: 0,
         },
       },
       {
@@ -782,6 +786,7 @@ export const timeline = async (req: Request, res: Response) => {
       },
     ])
     .toArray();
+
   const data = await Promise.all(
     result.map(async (user) => {
       const isOnline = onlineUsers.has(user.user.userId.toString());
@@ -794,5 +799,7 @@ export const timeline = async (req: Request, res: Response) => {
       };
     }),
   );
+
+  await redis.set(key, JSON.stringify(data), { EX: 2 * 60 });
   return res.json(data);
 };
