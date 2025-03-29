@@ -17,6 +17,7 @@ import messagesRouter from './messages/messages.controller';
 import paymentsRouter from './payments/payments.controller';
 import { webhook } from './payments/payments.service';
 import postsRouter from './posts/posts.controller';
+import { redis } from './rdb/redis';
 import reelsRouter from './reels/reels.controller';
 import storiesRouter from './stories/stories.controller';
 import usersRouter from './users/users.controller';
@@ -84,6 +85,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 const port = ENV('PORT');
 
-server.listen(port, () => {
+server.listen(port, async () => {
+  await redis.connect();
   console.log(`Server listening at http://localhost:${port}`);
 });
