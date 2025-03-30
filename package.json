@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
-    "@sentry/cli": "^2.41.1",
+    "@sentry/cli": "^2.43.0",
     "@sentry/node": "^8.52.1",
     "@sentry/profiling-node": "^9.10.1",
     "@sentry/tracing": "^7.120.3",
