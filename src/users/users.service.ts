@@ -3,16 +3,17 @@ import { ObjectId, WithId } from 'mongodb';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
-import { PostsEntity } from '../entities/posts.entity';
+import { SubscriptionPlansEntity } from '../entities/subscription_plans.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
 import { Collections } from '../util/constants';
+import { EditSubscriptionPlanInput } from './dto/edit-subscription_plan.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
+import { CreateSubscriptionPlanInput } from './dto/create-subscription_plan.dto';
 
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
-const posts = db.collection<PostsEntity>(Collections.POSTS);
-
+const subscription_plans = db.collection<SubscriptionPlansEntity>(Collections.SUBSCRIPTION_PLANS);
 export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfiles.updateOne({ userId }, { $inc: { postCount: count } });
 };
@@ -81,6 +82,14 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
             },
           ],
           as: '_subscriptions',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.SUBSCRIPTION_PLANS,
+          localField: 'userId',
+          foreignField: 'creatorId',
+          as: 'subscription_plans',
         },
       },
       {
@@ -323,3 +332,4 @@ export const unFollowProfile = async (req: Request, res: Response) => {
 
   return res.status(200).json({ message: 'UNFOLLOWED' });
 };
+

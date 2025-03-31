@@ -1,14 +1,18 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import { shake } from 'radash';
 import Stripe from 'stripe';
 import { MessagesEntity } from '../entities/messages.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostsEntity } from '../entities/posts.entity';
 import { PurchasesEntity } from '../entities/purchases.entity';
+import { SubscriptionPlansEntity } from '../entities/subscription_plans.entity';
 import { SubscriptionsEntity } from '../entities/subscriptions.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
+import { CreateSubscriptionPlanInput } from '../users/dto/create-subscription_plan.dto';
+import { EditSubscriptionPlanInput } from '../users/dto/edit-subscription_plan.dto';
 import { Collections, ENV } from '../util/constants';
 import { AttachPaymentMethodInput } from './dto/attach-payment.dto';
 import { ConfirmCardInput } from './dto/confirm-card.dto';
@@ -21,6 +25,7 @@ const users = db.collection<UsersEntity>(Collections.USERS);
 const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const subscriptions = db.collection<SubscriptionsEntity>(Collections.SUBSCRIPTIONS);
+const subscription_plans = db.collection<SubscriptionPlansEntity>(Collections.SUBSCRIPTION_PLANS);
 
 const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
   apiVersion: '2025-02-24.acacia',
@@ -38,6 +43,7 @@ export const createPayment = async (req: Request, res: Response) => {
   const body = req.body as CreatePaymentInput;
   const newAmount = body.amount * 100;
   const contentId = new ObjectId(body.contentId);
+  console.log("contentId",contentId)
   const currency = body.currency ?? 'inr';
   const purchaseType = req.query.purchaseType as string;
 
@@ -156,17 +162,21 @@ export const webhook = async (req: Request, res: Response) => {
         await messages.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
         break;
       case 'subscription':
-        await subscriptions.insertOne({
-          creatorId,
-          userId,
-          startedAt: new Date(),
-          expiresAt: new Date(24 * 60 * 60 * 30),
-          status: paymentIntent.status,
-          stripe_subscription_id: paymentIntent.id,
-        });
+        const subscriptionPlans = await subscription_plans.findOne({ _id: contentId, creatorId: creatorId });
+        if (subscriptionPlans)
+          await subscriptions.insertOne({
+            creatorId,
+            userId,
+            startedAt: new Date(),
+            expiresAt: new Date(24 * 60 * 60 * 30),
+            status: paymentIntent.status,
+            stripe_subscription_id: paymentIntent.id,
+            subscription_plans_id: subscriptionPlans._id,
+            price: subscriptionPlans.price * 100,
+          });
         break;
       default:
-        console.log('Something wrong happened!');
+        return res.status(400).json({ error: 'SOMETHING WRONG HAPPENED' });
     }
   }
 };
@@ -183,7 +193,6 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
     let customerId = userProfile?.stripeCustomerId;
-    console.log(customerId);
     if (!customerId) {
       const customer = await stripe.customers.create({
         name: userProfile!.fullName,
@@ -255,4 +264,68 @@ export const getCard = async (req: Request, res: Response) => {
     );
     return res.status(200).json({ ...paymentMethod, customer });
   }
+};
+
+export const createSubscriptionPlan = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as CreateSubscriptionPlanInput;
+  await subscription_plans.insertOne({
+    createdAt: new Date(),
+    creatorId: userId,
+    deletedAt: null,
+    description: body.description,
+    price:body.price,
+    syncedAt: new Date(),
+    tier: body.tier,
+    bannerURL: null,
+  });
+  return res.status(200).json({ message: 'SUBSCRIPTION PLAN CREATED SUCCESSFULLY' });
+};
+
+export const getSubscriptionPlans = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.creatorId)) {
+    return res.status(404).json({ message: 'INVALID ID' });
+  }
+  const userId = new ObjectId(req.params.creatorId);
+  const subscriptionPlans = await subscription_plans.find({ creatorId: userId }).toArray();
+  return res.status(200).json(subscriptionPlans);
+};
+
+export const deleteSubscriptionPlan = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.subscription_plan_id)) {
+    return res.status(404).json({ error: 'INVALID ID' });
+  }
+  const userId = new ObjectId(req.user!.userId);
+  const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
+  const planExists = await subscription_plans.findOne({ _id: subscription_plan_id, creatorId: userId });
+
+  if (!planExists) {
+    return res.status(404).json({ message: 'INVALID CREDENTIALS' });
+  }
+
+  await subscription_plans.deleteOne({ _id: subscription_plan_id, creatorId: userId });
+  return res.status(200).json({ message: 'DELETED SUBSCRIPTION PLAN SUCCESSFULLY' });
+};
+
+export const editSubscriptionPlan = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const body = req.body as EditSubscriptionPlanInput;
+  const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
+  const planExists = await subscription_plans.findOne({ _id: subscription_plan_id, creatorId: userId });
+  if (!planExists) {
+    return res.status(404).json({ message: 'INVALID CREDENTIALS' });
+  }
+  const updatedPlan = await subscription_plans.findOneAndUpdate(
+    { _id: subscription_plan_id, creatorId: userId },
+    {
+      $set: shake({
+        price: body.price,
+        description: body.description,
+        tier: body.tier,
+        bannerURL: body.bannerURL,
+      }),
+    },
+    { returnDocument: 'after' },
+  );
+  return res.status(200).json(updatedPlan);
 };

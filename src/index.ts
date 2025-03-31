@@ -84,7 +84,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 const port = ENV('PORT');
-
+ 
 server.listen(port, async () => {
   await redis.connect();
   console.log(`Server listening at http://localhost:${port}`);

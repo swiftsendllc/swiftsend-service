@@ -20,6 +20,7 @@ const likes = db.collection<LikesEntity>(Collections.LIKES);
 const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
 const saves = db.collection<SavesEntity>(Collections.SAVES);
 const shares = db.collection<SharesEntity>(Collections.SHARES);
+const timelineKey = 'timeline-posts';
 
 const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
   const result = await posts
@@ -327,10 +328,11 @@ export const createPost = async (req: Request, res: Response) => {
     isExclusive: isExclusive,
     imageUrls: body.imageUrls,
     price: isExclusive ? body.price : null,
-    blurredImageUrls: isExclusive ? body.blurredImageUrls : null,
+    blurredImageUrls: body.blurredImageUrls,
   });
   await updatePostCount(userId, 1);
 
+  await redis.del(timelineKey);
   return res.json({ message: 'POST IS CREATED' });
 };
 
@@ -651,10 +653,9 @@ export const getPostLikes = async (req: Request, res: Response) => {
 };
 
 export const timeline = async (req: Request, res: Response) => {
-  const key = 'timeline-posts';
-  const cache = await redis.get(key);
+  // const cache = await redis.get(timelineKey);
 
-  if (cache) return res.json(JSON.parse(cache));
+  // if (cache) return res.json(JSON.parse(cache));
 
   const userId = new ObjectId(req.user!.userId);
   const offset = parseInt(req.query.offset as string) || 0;
@@ -754,7 +755,13 @@ export const timeline = async (req: Request, res: Response) => {
           },
           imageUrls: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
               '$imageUrls',
               '$blurredImageUrls',
             ],
@@ -800,6 +807,6 @@ export const timeline = async (req: Request, res: Response) => {
     }),
   );
 
-  await redis.set(key, JSON.stringify(data), { EX: 2 * 60 });
+  // await redis.set(timelineKey, JSON.stringify(data), { EX: 2 * 60 });
   return res.json(data);
 };
