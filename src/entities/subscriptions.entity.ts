@@ -7,4 +7,6 @@ export interface SubscriptionsEntity {
   status: string;
   startedAt: Date;
   expiresAt: Date;
+  price: number;
+  subscription_plans_id: ObjectId;
 }

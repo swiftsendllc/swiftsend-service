@@ -65,7 +65,7 @@ router.post('/posts/upload', auth, upload.array('files'), async (req: Request, r
 
   const uploaded = await Promise.all(
     files.map(async (file) => {
-      const originalFile = await uploadFile({
+      const _originalFile = await uploadFile({
         buffer: file.buffer,
         contentType: file.mimetype,
         metadata: {
@@ -84,7 +84,7 @@ router.post('/posts/upload', auth, upload.array('files'), async (req: Request, r
         .toFormat('jpeg')
         .toBuffer();
 
-      const blurredFile = await uploadFile({
+      const _blurredFile = await uploadFile({
         buffer: blurredBuffer,
         contentType: file.mimetype,
         metadata: {
@@ -93,7 +93,7 @@ router.post('/posts/upload', auth, upload.array('files'), async (req: Request, r
         },
         path: `assets/${req.user!.userId}/${randomUUID()}/blurred-${file.originalname}`,
       });
-
+      const [originalFile, blurredFile] = await Promise.all([_originalFile, _blurredFile]);
       return { originalFile, blurredFile };
     }),
   );

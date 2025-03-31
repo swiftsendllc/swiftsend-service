@@ -22,6 +22,7 @@ export const Collections = {
   PURCHASES: 'purchases',
   GROUP_REPLIES: 'group_replies',
   CARDS: 'cards',
+  SUBSCRIPTION_PLANS:"subscription_plans"
 } as const;
 
 export const Env = {
