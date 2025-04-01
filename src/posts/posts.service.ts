@@ -85,11 +85,27 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
             $cond: [{ $gt: [{ $size: '$_saves' }, 0] }, true, false],
           },
           isPurchased: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+            $cond: [
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
+              true,
+              false,
+            ],
           },
           imageUrls: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
               '$imageUrls',
               '$blurredImageUrls',
             ],
@@ -249,11 +265,27 @@ export const getPost = async (req: Request, res: Response) => {
             $cond: [{ $gt: [{ $size: '$_following' }, 0] }, true, false],
           },
           isPurchased: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+            $cond: [
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
+              true,
+              false,
+            ],
           },
           imageUrls: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$userId', userId] }] },
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
               '$imageUrls',
               '$blurredImageUrls',
             ],
@@ -495,7 +527,17 @@ export const getSavedPosts = async (req: Request, res: Response) => {
       {
         $set: {
           imageUrls: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+            $cond: [
+              {
+                $or: [
+                  { $eq: ['$$post.userId', userId] },
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$$post.isExclusive', false] },
+                ],
+              },
+              '$post.imageUrls',
+              '$post.blurredImageUrls',
+            ],
           },
         },
       },
@@ -506,7 +548,17 @@ export const getSavedPosts = async (req: Request, res: Response) => {
               '$post',
               {
                 imageUrls: {
-                  $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, '$post.imageUrls', '$post.blurredImageUrls'],
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$$post.userId', userId] },
+                        { $eq: ['$$post.isExclusive', false] },
+                      ],
+                    },
+                    '$post.imageUrls',
+                    '$post.blurredImageUrls',
+                  ],
                 },
               },
             ],
@@ -555,7 +607,13 @@ export const getLikedPosts = async (req: Request, res: Response) => {
         $set: {
           imageUrls: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$$post.userId', userId] }] },
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$$post.userId', userId] },
+                  { $eq: ['$$post.isExclusive', false] },
+                ],
+              },
               '$post.imageUrls',
               '$post.blurredImageUrls',
             ],
@@ -570,7 +628,13 @@ export const getLikedPosts = async (req: Request, res: Response) => {
               {
                 imageUrls: {
                   $cond: [
-                    { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$$post.userId', userId] }] },
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$$post.userId', userId] },
+                        { $eq: ['$$post.isExclusive', false] },
+                      ],
+                    },
                     '$post.imageUrls',
                     '$post.blurredImageUrls',
                   ],
@@ -751,7 +815,17 @@ export const timeline = async (req: Request, res: Response) => {
             $cond: [{ $or: [{ $gt: [{ $size: '$_following' }, 0] }, { $eq: ['$userId', userId] }] }, true, false],
           },
           isPurchased: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
+            $cond: [
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$userId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
+              true,
+              false,
+            ],
           },
           imageUrls: {
             $cond: [
