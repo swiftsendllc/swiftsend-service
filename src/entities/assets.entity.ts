@@ -6,6 +6,6 @@ export interface AssetsEntity {
   blurredURL: string;
   type: string;
   createdAt: Date;
-  deletedAt: Date;
+  deletedAt: Date | null;
   updatedAt: Date;
 }

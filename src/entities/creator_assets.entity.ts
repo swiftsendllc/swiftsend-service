@@ -4,6 +4,6 @@ export interface CreatorAssetsEntity {
   creatorId: ObjectId;
   assetId: ObjectId;
   createdAt: Date;
-  deletedAt: Date;
-  updatedAt: Date;
+  deletedAt: Date | null;
+  updatedAt: Date | null;
 }

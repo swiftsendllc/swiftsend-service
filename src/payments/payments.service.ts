@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
 import Stripe from 'stripe';
+import { FanAssetsEntity } from '../entities/fan_assets.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostsEntity } from '../entities/posts.entity';
@@ -26,6 +27,7 @@ const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const subscriptions = db.collection<SubscriptionsEntity>(Collections.SUBSCRIPTIONS);
 const subscription_plans = db.collection<SubscriptionPlansEntity>(Collections.SUBSCRIPTION_PLANS);
+const fan_assets = db.collection<FanAssetsEntity>(Collections.FAN_ASSETS);
 
 const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
   apiVersion: '2025-02-24.acacia',
@@ -43,7 +45,6 @@ export const createPayment = async (req: Request, res: Response) => {
   const body = req.body as CreatePaymentInput;
   const newAmount = body.amount * 100;
   const contentId = new ObjectId(body.contentId);
-  console.log("contentId",contentId)
   const currency = body.currency ?? 'inr';
   const purchaseType = req.query.purchaseType as string;
 
@@ -74,7 +75,7 @@ export const createPayment = async (req: Request, res: Response) => {
       shipping: {
         address: {
           city: 'Kolkata',
-          country: 'India',
+          country: userProfile!.region,
           state: 'wb',
           postal_code: '74333',
           line1: '123 street',
@@ -139,6 +140,14 @@ export const webhook = async (req: Request, res: Response) => {
           userId,
         });
 
+        await fan_assets.insertOne({
+          assetId: contentId,
+          fanId: userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          editedAt: null,
+        });
+
         await posts.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
         break;
 
@@ -176,7 +185,7 @@ export const webhook = async (req: Request, res: Response) => {
           });
         break;
       default:
-        return res.status(400).json({ error: 'SOMETHING WRONG HAPPENED' });
+        return res.status(402).json({ error: 'SOMETHING WRONG HAPPENED' });
     }
   }
 };
@@ -274,7 +283,7 @@ export const createSubscriptionPlan = async (req: Request, res: Response) => {
     creatorId: userId,
     deletedAt: null,
     description: body.description,
-    price:body.price,
+    price: body.price,
     syncedAt: new Date(),
     tier: body.tier,
     bannerURL: null,
