@@ -4,6 +4,6 @@ export interface FanAssetsEntity {
   fanId: ObjectId;
   assetId: ObjectId;
   createdAt: Date;
-  editedAt: Date;
+  editedAt: Date | null;
   updatedAt: Date;
 }

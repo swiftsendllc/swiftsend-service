@@ -12,6 +12,7 @@ import { ENV } from './util/constants';
 import http from 'http';
 import morgan from 'morgan';
 import { Server } from 'socket.io';
+import assetsRouter from './assets/assets.controller';
 import loginRouter from './auth/auth.controller';
 import messagesRouter from './messages/messages.controller';
 import paymentsRouter from './payments/payments.controller';
@@ -53,7 +54,16 @@ app.get('/debug', () => {
   throw new Error('This is a test error');
 });
 
-app.use(loginRouter, usersRouter, postsRouter, storiesRouter, reelsRouter, messagesRouter, paymentsRouter);
+app.use(
+  loginRouter,
+  usersRouter,
+  postsRouter,
+  storiesRouter,
+  reelsRouter,
+  messagesRouter,
+  paymentsRouter,
+  assetsRouter,
+);
 
 io.on('connection', (socket) => {
   const userId = socket.handshake.query.userId as string;
@@ -84,7 +94,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 const port = ENV('PORT');
- 
+
 server.listen(port, async () => {
   await redis.connect();
   console.log(`Server listening at http://localhost:${port}`);
