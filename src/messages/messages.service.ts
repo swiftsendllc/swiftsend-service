@@ -303,12 +303,12 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           from: Collections.USER_PROFILES,
           localField: 'senderId',
           foreignField: 'userId',
-          as: 'receiver',
+          as: 'sender',
         },
       },
       {
         $unwind: {
-          path: '$receiver',
+          path: '$sender',
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -317,12 +317,12 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           from: Collections.MESSAGES,
           localField: '_id',
           foreignField: 'repliedTo',
-          as: 'repliedMessage',
+          as: 'repliedToMessage',
         },
       },
       {
         $unwind: {
-          path: '$repliedMessage',
+          path: '$repliedToMessage',
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -371,7 +371,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
       {
         $project: {
           blurredImageUrls: 0,
-          _purchased:0
+          _purchased: 0,
         },
       },
       {
@@ -497,9 +497,10 @@ export const sendMessage = async (req: Request, res: Response) => {
   const { insertedId } = await messages.insertOne(newMessage);
   Object.assign(newMessage, { _id: insertedId });
 
+  const senderProfile = await user_profiles.findOne({ userId: senderId });
   const receiverSocketId = receiverId.toString();
-  io.to(receiverSocketId).emit('newMessage', newMessage);
-  return res.json(newMessage);
+  io.to(receiverSocketId).emit('newMessage', { ...newMessage, sender: senderProfile });
+  return res.json({ ...newMessage, sender: senderProfile });
 };
 
 export const editMessage = async (req: Request, res: Response) => {
@@ -1266,11 +1267,12 @@ export const sendMessageReply = async (req: Request, res: Response) => {
     repliedAt: new Date(),
   });
   await messages.updateOne({ _id: messageId }, { $set: { repliedTo: insertedId } });
+  const senderProfile = await user_profiles.findOne({ userId: senderId });
 
-  const repliedMessage = await messages.findOne({ _id: messageId });
-  io.to(receiverId.toString()).emit('replyMessage', { ...replyMessage, repliedMessage });
+  const repliedToMessage = await messages.findOne({ _id: messageId });
+  io.to(receiverId.toString()).emit('replyMessage', { ...replyMessage, repliedToMessage, sender: senderProfile });
 
-  return res.status(200).json({ ...replyMessage, repliedMessage });
+  return res.status(200).json({ ...replyMessage, repliedToMessage, sender: senderProfile });
 };
 
 export const sendGroupMessageReply = async (req: Request, res: Response) => {
