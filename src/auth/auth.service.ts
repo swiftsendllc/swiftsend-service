@@ -2,14 +2,14 @@ import bcryptjs from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import nodemailer from 'nodemailer';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { UsersEntity } from '../entities/users.entity';
 import { db } from '../rdb/mongodb';
-import { Collections } from '../util/constants';
+import { Collections, ENV } from '../util/constants';
 import { LoginInput } from './dto/login.dto';
 import { SignUpInput } from './dto/signup.dto';
 import { createToken } from './jwt.service';
-
 const saltRounds = 10;
 
 const users = db.collection<UsersEntity>(Collections.USERS);
@@ -93,6 +93,8 @@ export const signup = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
 
 export const getAuthUser = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);

@@ -52,6 +52,10 @@ export const Env = {
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
   STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY || '',
   STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID || '',
+  EMAIL: process.env.EMAIL || '',
+  APP_PASSWORD: process.env.APP_PASSWORD || '',
+  EMAIL_HOST:process.env.EMAIL_HOST || '',
+  EMAIL_PORT:process.env.EMAIL_PORT || ''
 };
 type EnvKeys = keyof typeof Env;
 export const ENV = (key: EnvKeys) => Env[key];

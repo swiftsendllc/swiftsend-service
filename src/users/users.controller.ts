@@ -9,6 +9,7 @@ import {
   getFollowing,
   getUserProfileByUsernameOrId,
   getUserProfiles,
+  sendReport,
   unFollowProfile,
   updateUserProfile,
 } from './users.service';
@@ -30,6 +31,8 @@ router.delete('/users/:userId/remove-follower', auth, unFollowProfile);
 router.get('/users/:userId/followers', auth, getFollowers);
 
 router.get('/users/:userId/following', auth, getFollowing);
+
+router.post('/send/report', sendReport);
 
 router.post('/users/upload', auth, upload.single('file'), async (req: Request, res) => {
   if (!req.file) throw new Error('File is missing');
