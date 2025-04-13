@@ -1,19 +1,17 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
+import nodemailer from 'nodemailer';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
-import { SubscriptionPlansEntity } from '../entities/subscription_plans.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { db } from '../rdb/mongodb';
-import { Collections } from '../util/constants';
-import { EditSubscriptionPlanInput } from './dto/edit-subscription_plan.dto';
+import { Collections, ENV } from '../util/constants';
+import { SendEmailInput } from './dto/send-email.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
-import { CreateSubscriptionPlanInput } from './dto/create-subscription_plan.dto';
 
 const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
-const subscription_plans = db.collection<SubscriptionPlansEntity>(Collections.SUBSCRIPTION_PLANS);
 export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfiles.updateOne({ userId }, { $inc: { postCount: count } });
 };
@@ -333,3 +331,27 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'UNFOLLOWED' });
 };
 
+export const sendReport = async (req: Request, res: Response) => {
+  const body = req.body as SendEmailInput;
+  const to = body.to;
+  if (!to.length) return res.status(400).json({ message: 'Recipient not found!' });
+  if (!body.text || !body.subject) return res.status(400).json({ message: 'Content not found!' });
+  const transporter = nodemailer.createTransport({
+    host: ENV('EMAIL_HOST'),
+    port: 587,
+    secure: false,
+    auth: {
+      user: ENV('EMAIL'),
+      pass: ENV('APP_PASSWORD'),
+    },
+  });
+  const info = await transporter.sendMail({
+    from: ENV('EMAIL'),
+    to: to,
+    subject: body.subject,
+    text: body.text,
+    cc: body.cc,
+    bcc: body.bcc,
+  });
+  return res.status(200).json({ info: info });
+};
