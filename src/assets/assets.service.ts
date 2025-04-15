@@ -61,7 +61,7 @@ export const getCreatorAssets = async (req: Request, res: Response) => {
           from: Collections.ASSETS,
           localField: 'assetId',
           foreignField: '_id',
-          as: '_creator_assets',
+          as: '_assets',
         },
       },
     ])
@@ -79,10 +79,10 @@ export const getFanAssets = async (req: Request, res: Response) => {
       },
       {
         $lookup: {
-          from: Collections.CREATOR_ASSETS,
+          from: Collections.FAN_ASSETS,
           localField: 'assetId',
           foreignField: 'assetId',
-          as: '_fan_assets',
+          as: '_assets',
         },
       },
     ])
