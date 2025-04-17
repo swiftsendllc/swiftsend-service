@@ -2,32 +2,23 @@ import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
 import Stripe from 'stripe';
-import { FanAssetsEntity } from '../entities/fan_assets.entity';
-import { MessagesEntity } from '../entities/messages.entity';
-import { PaymentsEntity } from '../entities/payments.entity';
-import { PostsEntity } from '../entities/posts.entity';
-import { PurchasesEntity } from '../entities/purchases.entity';
-import { SubscriptionPlansEntity } from '../entities/subscription_plans.entity';
-import { SubscriptionsEntity } from '../entities/subscriptions.entity';
-import { UserProfilesEntity } from '../entities/user-profiles.entity';
-import { UsersEntity } from '../entities/users.entity';
-import { db } from '../rdb/mongodb';
 import { CreateSubscriptionPlanInput } from '../users/dto/create-subscription_plan.dto';
 import { EditSubscriptionPlanInput } from '../users/dto/edit-subscription_plan.dto';
-import { Collections, ENV } from '../util/constants';
+import { ENV } from '../util/constants';
+import {
+  fanAssetsRepository,
+  messagesRepository,
+  paymentsRepository,
+  postsRepository,
+  purchasesRepository,
+  subscriptionPlansRepository,
+  subscriptionsRepository,
+  userProfilesRepository,
+  usersRepository,
+} from '../util/repositories';
 import { AttachPaymentMethodInput } from './dto/attach-payment.dto';
 import { ConfirmCardInput } from './dto/confirm-card.dto';
 import { CreatePaymentInput } from './dto/create-payment.dto';
-
-const payments = db.collection<PaymentsEntity>(Collections.PAYMENTS);
-const purchases = db.collection<PurchasesEntity>(Collections.PURCHASES);
-const posts = db.collection<PostsEntity>(Collections.POSTS);
-const users = db.collection<UsersEntity>(Collections.USERS);
-const messages = db.collection<MessagesEntity>(Collections.MESSAGES);
-const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
-const subscriptions = db.collection<SubscriptionsEntity>(Collections.SUBSCRIPTIONS);
-const subscription_plans = db.collection<SubscriptionPlansEntity>(Collections.SUBSCRIPTION_PLANS);
-const fan_assets = db.collection<FanAssetsEntity>(Collections.FAN_ASSETS);
 
 const stripe = new Stripe(ENV('STRIPE_SECRET_KEY'), {
   apiVersion: '2025-02-24.acacia',
@@ -49,7 +40,7 @@ export const createPayment = async (req: Request, res: Response) => {
   const purchaseType = req.query.purchaseType as string;
 
   try {
-    const userProfile = await userProfiles.findOne({ userId: userId });
+    const userProfile = await userProfilesRepository.findOne({ userId: userId });
     const customerId = userProfile?.stripeCustomerId;
     if (!userProfile && userProfile!.stripeCustomerId) {
       return res.status(400).json({ message: 'Stripe customer id is not found!' });
@@ -123,7 +114,7 @@ export const webhook = async (req: Request, res: Response) => {
     const purchaseType = paymentIntent.metadata.purchaseType;
     switch (purchaseType) {
       case 'post':
-        await payments.insertOne({
+        await paymentsRepository.insertOne({
           userId: userId,
           contentId,
           creatorId,
@@ -134,13 +125,13 @@ export const webhook = async (req: Request, res: Response) => {
           stripe_payment_id: paymentIntent.id,
         });
 
-        await purchases.insertOne({
+        await purchasesRepository.insertOne({
           contentId: contentId,
           purchasedAt: new Date(),
           userId,
         });
 
-        await fan_assets.insertOne({
+        await fanAssetsRepository.insertOne({
           assetId: contentId,
           fanId: userId,
           createdAt: new Date(),
@@ -148,11 +139,11 @@ export const webhook = async (req: Request, res: Response) => {
           editedAt: null,
         });
 
-        await posts.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
+        await postsRepository.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
         break;
 
       case 'message':
-        await payments.insertOne({
+        await paymentsRepository.insertOne({
           userId: userId,
           contentId,
           creatorId,
@@ -163,17 +154,17 @@ export const webhook = async (req: Request, res: Response) => {
           stripe_payment_id: paymentIntent.id,
         });
 
-        await purchases.insertOne({
+        await purchasesRepository.insertOne({
           contentId: contentId,
           purchasedAt: new Date(),
           userId,
         });
-        await messages.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
+        await messagesRepository.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
         break;
       case 'subscription':
-        const subscriptionPlans = await subscription_plans.findOne({ _id: contentId, creatorId: creatorId });
+        const subscriptionPlans = await subscriptionPlansRepository.findOne({ _id: contentId, creatorId: creatorId });
         if (subscriptionPlans)
-          await subscriptions.insertOne({
+          await subscriptionsRepository.insertOne({
             creatorId,
             userId,
             startedAt: new Date(),
@@ -195,8 +186,8 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
     const body = req.body as AttachPaymentMethodInput;
     const paymentMethodId = body.paymentMethodId;
     const userId = new ObjectId(req.user!.userId);
-    const userProfile = await userProfiles.findOne({ userId: userId });
-    const user = await users.findOne({ _id: userId });
+    const userProfile = await userProfilesRepository.findOne({ userId: userId });
+    const user = await usersRepository.findOne({ _id: userId });
 
     if (!userProfile && !user) {
       return res.status(404).json({ message: 'User not found' });
@@ -209,7 +200,7 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
         metadata: { userId: userId.toString() },
       });
       customerId = customer.id;
-      await userProfiles.updateOne({ userId: userId }, { $set: { stripeCustomerId: customer.id } });
+      await userProfilesRepository.updateOne({ userId: userId }, { $set: { stripeCustomerId: customer.id } });
     }
 
     const intentResult = await stripe.setupIntents.create({
@@ -240,7 +231,7 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
 export const confirmCard = async (req: Request, res: Response) => {
   const body = req.body as ConfirmCardInput;
   const userId = new ObjectId(req.user!.userId);
-  const userProfile = await userProfiles.findOne({ userId: userId });
+  const userProfile = await userProfilesRepository.findOne({ userId: userId });
   if (!userProfile) {
     return res.status(404).json({ message: 'User not found!' });
   }
@@ -256,12 +247,12 @@ export const confirmCard = async (req: Request, res: Response) => {
 
 export const getCard = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const userProfile = await userProfiles.findOne({ userId: userId });
+  const userProfile = await userProfilesRepository.findOne({ userId: userId });
   if (!userProfile) {
     return res.status(404).json({ message: 'User profile not found!' });
   }
 
-  const user = await users.findOne({ _id: userProfile.userId });
+  const user = await usersRepository.findOne({ _id: userProfile.userId });
   if (!user || !userProfile.stripeCustomerId) {
     return res.status(404).json({ message: 'Customer not found!' });
   }
@@ -278,7 +269,7 @@ export const getCard = async (req: Request, res: Response) => {
 export const createSubscriptionPlan = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as CreateSubscriptionPlanInput;
-  await subscription_plans.insertOne({
+  await subscriptionPlansRepository.insertOne({
     createdAt: new Date(),
     creatorId: userId,
     deletedAt: null,
@@ -296,7 +287,7 @@ export const getSubscriptionPlans = async (req: Request, res: Response) => {
     return res.status(404).json({ message: 'INVALID ID' });
   }
   const userId = new ObjectId(req.params.creatorId);
-  const subscriptionPlans = await subscription_plans.find({ creatorId: userId }).toArray();
+  const subscriptionPlans = await subscriptionPlansRepository.find({ creatorId: userId }).toArray();
   return res.status(200).json(subscriptionPlans);
 };
 
@@ -306,13 +297,13 @@ export const deleteSubscriptionPlan = async (req: Request, res: Response) => {
   }
   const userId = new ObjectId(req.user!.userId);
   const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
-  const planExists = await subscription_plans.findOne({ _id: subscription_plan_id, creatorId: userId });
+  const planExists = await subscriptionPlansRepository.findOne({ _id: subscription_plan_id, creatorId: userId });
 
   if (!planExists) {
     return res.status(404).json({ message: 'INVALID CREDENTIALS' });
   }
 
-  await subscription_plans.deleteOne({ _id: subscription_plan_id, creatorId: userId });
+  await subscriptionPlansRepository.deleteOne({ _id: subscription_plan_id, creatorId: userId });
   return res.status(200).json({ message: 'DELETED SUBSCRIPTION PLAN SUCCESSFULLY' });
 };
 
@@ -320,11 +311,11 @@ export const editSubscriptionPlan = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as EditSubscriptionPlanInput;
   const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
-  const planExists = await subscription_plans.findOne({ _id: subscription_plan_id, creatorId: userId });
+  const planExists = await subscriptionPlansRepository.findOne({ _id: subscription_plan_id, creatorId: userId });
   if (!planExists) {
     return res.status(404).json({ message: 'INVALID CREDENTIALS' });
   }
-  const updatedPlan = await subscription_plans.findOneAndUpdate(
+  const updatedPlan = await subscriptionPlansRepository.findOneAndUpdate(
     { _id: subscription_plan_id, creatorId: userId },
     {
       $set: shake({
