@@ -3,27 +3,26 @@ import { ObjectId, WithId } from 'mongodb';
 import { onlineUsers } from '..';
 import { CommentsEntity } from '../entities/comments.entity';
 import { LikesEntity } from '../entities/likes.entity';
-import { PostsEntity } from '../entities/posts.entity';
 import { SavesEntity } from '../entities/saves.entity';
-import { SharesEntity } from '../entities/shares.entity';
-import { db } from '../rdb/mongodb';
 import { redis } from '../rdb/redis';
 import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
+import {
+  commentsRepository,
+  likesRepository,
+  postsRepository,
+  savesRepository,
+  sharesRepository,
+} from '../util/repositories';
 import { CommentPostInput } from './dto/comment-post.dto';
 import { CreatePostInput } from './dto/create-post.dto';
 import { SharePostInput } from './dto/share-post.dto';
 import { UpdatePostInput } from './dto/update-post.dto';
 
-const posts = db.collection<PostsEntity>(Collections.POSTS);
-const likes = db.collection<LikesEntity>(Collections.LIKES);
-const comments = db.collection<CommentsEntity>(Collections.COMMENTS);
-const saves = db.collection<SavesEntity>(Collections.SAVES);
-const shares = db.collection<SharesEntity>(Collections.SHARES);
-const timelineKey = 'timeline-posts';
+const timelineKey = 'timeline-postsRepository';
 
 const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
-  const result = await posts
+  const result = await postsRepository
     .aggregate([
       {
         $match: { userId },
@@ -156,7 +155,7 @@ export const getPost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
-  const [result] = await posts
+  const [result] = await postsRepository
     .aggregate([
       {
         $match: { _id: postId },
@@ -346,7 +345,7 @@ export const createPost = async (req: Request, res: Response) => {
   }
 
   const userId = new ObjectId(req.user!.userId);
-  await posts.insertOne({
+  await postsRepository.insertOne({
     userId,
     likeCount: 0,
     saveCount: 0,
@@ -371,7 +370,7 @@ export const createPost = async (req: Request, res: Response) => {
 export const deletePost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
-  await posts.deleteOne({ userId, _id: postId });
+  await postsRepository.deleteOne({ userId, _id: postId });
 
   await updatePostCount(userId, -1);
 
@@ -382,7 +381,7 @@ export const editPost = async (req: Request, res: Response) => {
   const body = req.body as UpdatePostInput;
   const postId = new ObjectId(req.query.postId as string);
   const userId = new ObjectId(req.user!.userId);
-  await posts.updateOne({ userId, _id: postId }, { $set: { caption: body.caption } });
+  await postsRepository.updateOne({ userId, _id: postId }, { $set: { caption: body.caption } });
   return res.json({ message: 'POST IS EDITED' });
 };
 
@@ -390,10 +389,10 @@ export const likePost = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
 
-  const liked = await likes.findOne({ userId, postId });
+  const liked = await likesRepository.findOne({ userId, postId });
   if (liked) {
-    await likes.deleteOne({ userId, postId });
-    const post = await posts.findOneAndUpdate(
+    await likesRepository.deleteOne({ userId, postId });
+    const post = await postsRepository.findOneAndUpdate(
       { _id: postId },
       { $inc: { likeCount: -1 } },
       { returnDocument: 'after' },
@@ -410,8 +409,12 @@ export const likePost = async (req: Request, res: Response) => {
     createdAt: new Date(),
   };
 
-  await likes.insertOne(like);
-  const post = await posts.findOneAndUpdate({ _id: postId }, { $inc: { likeCount: 1 } }, { returnDocument: 'after' });
+  await likesRepository.insertOne(like);
+  const post = await postsRepository.findOneAndUpdate(
+    { _id: postId },
+    { $inc: { likeCount: 1 } },
+    { returnDocument: 'after' },
+  );
 
   return res.json({ ...post, isLiked: true });
 };
@@ -421,7 +424,7 @@ export const createComment = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
 
-  const post = await posts.findOneAndUpdate(
+  const post = await postsRepository.findOneAndUpdate(
     { _id: postId },
     { $inc: { commentCount: 1 } },
     { returnDocument: 'after' },
@@ -435,7 +438,7 @@ export const createComment = async (req: Request, res: Response) => {
       comment: body.comment,
       createdAt: new Date(),
     };
-    await comments.insertOne(comment);
+    await commentsRepository.insertOne(comment);
     return res.json({ post, comment });
   }
 
@@ -447,9 +450,9 @@ export const deleteComment = async (req: Request, res: Response) => {
   const commentId = new ObjectId(req.params.commentId);
   const userId = new ObjectId(req.user!.userId);
 
-  const { deletedCount } = await comments.deleteOne({ userId, _id: commentId });
+  const { deletedCount } = await commentsRepository.deleteOne({ userId, _id: commentId });
   if (deletedCount) {
-    const post = await posts.findOneAndUpdate(
+    const post = await postsRepository.findOneAndUpdate(
       { _id: postId },
       { $inc: { commentCount: -1 } },
       { returnDocument: 'after' },
@@ -464,10 +467,10 @@ export const deleteComment = async (req: Request, res: Response) => {
 export const savePost = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const postId = new ObjectId(req.params.id);
-  const saved = await saves.findOne({ userId, postId });
+  const saved = await savesRepository.findOne({ userId, postId });
   if (saved) {
-    await saves.deleteOne({ userId, postId });
-    const post = await posts.findOneAndUpdate(
+    await savesRepository.deleteOne({ userId, postId });
+    const post = await postsRepository.findOneAndUpdate(
       { userId, _id: postId },
       { $inc: { saveCount: -1 } },
       { returnDocument: 'after' },
@@ -480,8 +483,8 @@ export const savePost = async (req: Request, res: Response) => {
     postId,
     reelsId: null,
   };
-  await saves.insertOne(like);
-  const post = await posts.findOneAndUpdate(
+  await savesRepository.insertOne(like);
+  const post = await postsRepository.findOneAndUpdate(
     { userId, _id: postId },
     { $inc: { saveCount: 1 } },
     { returnDocument: 'after' },
@@ -492,7 +495,7 @@ export const savePost = async (req: Request, res: Response) => {
 
 export const getSavedPosts = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const savedPosts = await saves
+  const savedPosts = await savesRepository
     .aggregate([
       {
         $match: { userId: userId },
@@ -572,7 +575,7 @@ export const getSavedPosts = async (req: Request, res: Response) => {
 
 export const getLikedPosts = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const likedPosts = await likes
+  const likedPosts = await likesRepository
     .aggregate([
       {
         $match: { userId },
@@ -651,7 +654,7 @@ export const getLikedPosts = async (req: Request, res: Response) => {
 
 export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const commentsByYou = await comments
+  const commentsByYou = await commentsRepository
     .aggregate([
       {
         $match: { userId },
@@ -678,14 +681,14 @@ export const sharePost = async (req: Request, res: Response) => {
   const sharedUserId = new ObjectId(body.sharedUserId);
   const postId = new ObjectId(req.params.id);
 
-  await shares.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null, storyId: null });
-  await posts.updateOne({ _id: postId }, { $inc: { shareCount: 1 } });
+  await sharesRepository.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null, storyId: null });
+  await postsRepository.updateOne({ _id: postId }, { $inc: { shareCount: 1 } });
   return res.json({ message: 'ok' });
 };
 
 export const getPostLikes = async (req: Request, res: Response) => {
   const postId = new ObjectId(req.params.id);
-  const postLikes = await likes
+  const postLikes = await likesRepository
     .aggregate([
       {
         $match: {
@@ -724,7 +727,7 @@ export const timeline = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
   const offset = parseInt(req.query.offset as string) || 0;
   const limit = parseInt(req.query.limit as string) || 10;
-  const result = await posts
+  const result = await postsRepository
     .aggregate([
       {
         $lookup: {

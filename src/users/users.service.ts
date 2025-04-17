@@ -9,19 +9,18 @@ import { db } from '../rdb/mongodb';
 import { Collections, ENV } from '../util/constants';
 import { SendEmailInput } from './dto/send-email.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
+import { followersRepository, userProfilesRepository } from '../util/repositories';
 
-const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
-const followers = db.collection<FollowersEntity>(Collections.FOLLOWERS);
 export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
-  await userProfiles.updateOne({ userId }, { $inc: { postCount: count } });
+  await userProfilesRepository.updateOne({ userId }, { $inc: { postCount: count } });
 };
 
 export const updateFollowerCount = async (userId: ObjectId, count: 1 | -1) => {
-  await userProfiles.updateOne({ userId }, { $inc: { followerCount: count } });
+  await userProfilesRepository.updateOne({ userId }, { $inc: { followerCount: count } });
 };
 
 export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
-  await userProfiles.updateOne({ userId }, { $inc: { followingCount: count } });
+  await userProfilesRepository.updateOne({ userId }, { $inc: { followingCount: count } });
 };
 
 export const getUserProfileByUsernameOrId = async (req: Request, res: Response) => {
@@ -29,12 +28,12 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
   const where = ObjectId.isValid(req.params.usernameOrId)
     ? { _id: new ObjectId(req.params.usernameOrId) }
     : { username: req.params.usernameOrId };
-  const user = await userProfiles.findOne(where);
+  const user = await userProfilesRepository.findOne(where);
   if (!user) {
     return res.status(404).json({ message: 'User not found!' });
   }
   const isOnline = onlineUsers.get(user.userId.toString());
-  const [userProfile] = await userProfiles
+  const [userProfile] = await userProfilesRepository
     .aggregate([
       {
         $match: where,
@@ -125,7 +124,7 @@ export const getUserProfiles = async (req: Request, res: Response) => {
   if (!text) {
     return res.status(400).json({ error: "Parameter can't be empty" });
   }
-  const result = await userProfiles
+  const result = await userProfilesRepository
     .aggregate([
       {
         $search: {
@@ -162,13 +161,13 @@ export const updateUserProfile = async (req: Request, res: Response) => {
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
 
-  const exists = await userProfiles.findOne({ username, userId: { $ne: userId } });
+  const exists = await userProfilesRepository.findOne({ username, userId: { $ne: userId } });
   try {
     if (exists) {
       return res.status(409).json({ message: 'Username already exists!' });
     }
 
-    const userProfile = await userProfiles.findOneAndUpdate(
+    const userProfile = await userProfilesRepository.findOneAndUpdate(
       { userId },
       {
         $set: shake({
@@ -196,7 +195,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 
 export const getFollowing = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.params.userId);
-  const following = await followers
+  const following = await followersRepository
     .aggregate([
       {
         $match: {
@@ -222,7 +221,7 @@ export const getFollowing = async (req: Request, res: Response) => {
   const data = await Promise.all(
     following.map(async (user) => {
       const loggedInUserId = new ObjectId(req.user!.userId);
-      const isFollowing = await followers.findOne({
+      const isFollowing = await followersRepository.findOne({
         followingUserId: user.user.userId,
         followedUserId: loggedInUserId,
       });
@@ -244,7 +243,7 @@ export const getFollowing = async (req: Request, res: Response) => {
 
 export const getFollowers = async (req: Request, res: Response) => {
   const followedUserId = new ObjectId(req.params.userId);
-  const follower = await followers
+  const follower = await followersRepository
     .aggregate([
       {
         $match: {
@@ -270,7 +269,7 @@ export const getFollowers = async (req: Request, res: Response) => {
   const data = await Promise.all(
     follower.map(async (user) => {
       const loggedInUserId = new ObjectId(req.user!.userId);
-      const isFollowedByMe = await followers.findOne({
+      const isFollowedByMe = await followersRepository.findOne({
         followingUserId: loggedInUserId,
         followedUserId: user.user.userId,
       });
@@ -296,7 +295,7 @@ export const followProfile = async (req: Request, res: Response) => {
   if (followingUserId.toString() === followedUserId.toString()) {
     return res.status(400).json({ message: "You can't follow  yourself!" });
   }
-  const isFollowing = await followers.findOne({ followedUserId, followingUserId });
+  const isFollowing = await followersRepository.findOne({ followedUserId, followingUserId });
   if (isFollowing) {
     return res.status(400).json({ message: 'ALREADY FOLLOWED' });
   }
@@ -306,7 +305,7 @@ export const followProfile = async (req: Request, res: Response) => {
     createdAt: new Date(),
     deletedAt: null,
   } as WithId<FollowersEntity>;
-  const { insertedId } = await followers.insertOne(followedProfile);
+  const { insertedId } = await followersRepository.insertOne(followedProfile);
   Object.assign(followedProfile, { _id: insertedId });
 
   await updateFollowerCount(followedUserId, 1);
@@ -319,7 +318,7 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
-  const { deletedCount } = await followers.deleteOne({
+  const { deletedCount } = await followersRepository.deleteOne({
     followingUserId,
     followedUserId,
   });

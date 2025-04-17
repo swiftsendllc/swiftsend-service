@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { auth } from '../auth/middleware';
-import { createAsset, getCreatorAssets, getFanAssets } from './assets.service';
+import { getCreatorAssets, getFanAssets, uploadAndCreateAsset } from './assets.service';
 
 const router = Router();
 
-router.post('/assets/create', auth, createAsset);
+const upload = multer();
+
+router.post('/assets/create', auth, upload.single('file'), uploadAndCreateAsset);
 
 router.get('/assets/creator', auth, getCreatorAssets);
 

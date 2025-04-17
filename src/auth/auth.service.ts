@@ -9,17 +9,15 @@ import { Collections } from '../util/constants';
 import { LoginInput } from './dto/login.dto';
 import { SignUpInput } from './dto/signup.dto';
 import { createToken } from './jwt.service';
+import { usersRepository, userProfilesRepository } from '../util/repositories';
 const saltRounds = 10;
-
-const users = db.collection<UsersEntity>(Collections.USERS);
-const userProfiles = db.collection<UserProfilesEntity>(Collections.USER_PROFILES);
 
 export const login = async (req: Request, res: Response) => {
   try {
     const body = req.body as LoginInput;
     const email = body.email.toLowerCase().trim();
 
-    const user = await users.findOne({ email });
+    const user = await usersRepository.findOne({ email });
     if (!user) return res.status(401).json({});
 
     const isCorrect = await bcryptjs.compare(body.password, user.password);
@@ -41,7 +39,7 @@ export const signup = async (req: Request, res: Response) => {
 
     const email = body.email.toLowerCase().trim();
 
-    const user = await users.findOne({ email });
+    const user = await usersRepository.findOne({ email });
     if (user) return res.status(400).json({ message: 'Email already exists' });
 
     const password = await bcryptjs.hash(body.password, saltRounds);
@@ -53,7 +51,7 @@ export const signup = async (req: Request, res: Response) => {
 
     const _id = new ObjectId();
     const currentTime = new Date();
-    await users.insertOne({
+    await usersRepository.insertOne({
       _id,
       email,
       password,
@@ -63,7 +61,7 @@ export const signup = async (req: Request, res: Response) => {
       lastActiveAt: currentTime,
       createdAt: currentTime,
     });
-    await userProfiles.insertOne({
+    await userProfilesRepository.insertOne({
       userId: _id,
       fullName: body.fullName,
       username,
@@ -95,12 +93,12 @@ export const signup = async (req: Request, res: Response) => {
 
 export const getAuthUser = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
-  const user = await users.findOne({
+  const user = await usersRepository.findOne({
     _id: userId,
   });
   if (!user) return res.status(404).json({ message: 'user not found' });
 
-  const userProfile = await userProfiles.findOne({ userId });
+  const userProfile = await userProfilesRepository.findOne({ userId });
   if (!userProfile) return res.status(404).json({ message: 'Profile not found' });
 
   return res.status(200).json(userProfile);
