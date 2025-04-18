@@ -7,7 +7,7 @@ const router = Router();
 
 const upload = multer();
 
-router.post('/assets/create', auth, upload.single('file'), uploadAndCreateAsset);
+router.post('/assets/upload', auth, upload.single('file'), uploadAndCreateAsset);
 
 router.get('/assets/creator', auth, getCreatorAssets);
 

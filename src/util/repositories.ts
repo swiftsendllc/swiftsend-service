@@ -47,9 +47,8 @@ export const groupMessagesRepository = db.collection<GroupMessagesEntity>(Collec
 export const groupReactionsRepository = db.collection<GroupReactionsEntity>(Collections.GROUP_REACTIONS);
 export const repliesRepository = db.collection<RepliesEntity>(Collections.REPLIES);
 export const groupRepliesRepository = db.collection<GroupRepliesEntity>(Collections.GROUP_REPLIES);
-export const assetsService = db.collection<AssetsEntity>(Collections.ASSETS);
-export const creatorAssetService = db.collection<CreatorAssetsEntity>(Collections.CREATOR_ASSETS);
-export const fanAssetsService = db.collection<FanAssetsEntity>(Collections.FAN_ASSETS);
+export const assetsRepository = db.collection<AssetsEntity>(Collections.ASSETS);
+export const creatorAssetsRepository = db.collection<CreatorAssetsEntity>(Collections.CREATOR_ASSETS);
 export const reelsRepository = db.collection<ReelsEntity>(Collections.REELS);
 export const storiesRepository = db.collection<StoriesEntity>(Collections.STORIES);
 

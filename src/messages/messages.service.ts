@@ -501,6 +501,10 @@ export const sendMessage = async (req: Request, res: Response) => {
   return res.json({ ...newMessage, sender: senderProfile });
 };
 
+export const broadcast = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+};
+
 export const editMessage = async (req: Request, res: Response) => {
   const messageId = new ObjectId(req.params.id);
   const senderId = new ObjectId(req.user!.userId);

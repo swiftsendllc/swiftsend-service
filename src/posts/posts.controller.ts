@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import multer from 'multer';
 import { auth } from '../auth/middleware';
 import {
   createComment,
@@ -21,8 +20,6 @@ import {
 } from './posts.service';
 
 const router = Router();
-
-const upload = multer();
 
 router.get('/posts', auth, getPosts);
 
