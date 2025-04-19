@@ -4,18 +4,34 @@ import { ObjectId, WithId } from 'mongodb';
 import sharp from 'sharp';
 import { AssetsEntity } from '../entities/assets.entity';
 import { Collections } from '../util/constants';
-import { assetsRepository, creatorAssetsRepository, fanAssetsRepository } from '../util/repositories';
+import {
+  assetsRepository,
+  creatorAssetsRepository,
+  fanAssetsRepository,
+  postAssetsRepository,
+} from '../util/repositories';
 import { uploadFile } from '../util/upload';
+import { DeleteAssetsInput } from './dto/delete-assets.dto';
 
-export const deleteCreatorAsset = async (req: Request, res: Response) => {
+export const deleteCreatorAssets = async (req: Request, res: Response) => {
   const creatorId = new ObjectId(req.user!.userId);
-  const assetId = new ObjectId(req.params.assetId);
-  const result = await creatorAssetsRepository.deleteOne({ assetId: assetId, creatorId: creatorId });
-  if (result.deletedCount > 0) {
-    return res.status(200).json({ message: 'THE ASSET IS DELETED SUCCESSFULLY' });
-  } else {
-    return res.status(400).json({ message: 'FAILED TO DELETE MESSAGE!' });
-  }
+  const body = req.body as DeleteAssetsInput;
+  const validAssetIds = body.assetIds.filter((id) => ObjectId.isValid(id));
+
+  if (validAssetIds.length === 0) return res.status(400).json('Invalid asset ids!');
+
+  const assetIds = validAssetIds.map((id) => new ObjectId(id));
+
+  await creatorAssetsRepository.updateMany(
+    { assetId: { $in: assetIds }, creatorId: creatorId },
+    { $set: { deletedAt: new Date() } },
+  );
+
+  await creatorAssetsRepository.deleteMany({
+    assetId: { $in: assetIds },
+    creatorId: creatorId,
+  });
+  return res.status(200).json({ message: 'THE ASSET IS DELETED SUCCESSFULLY' });
 };
 
 export const getCreatorAssets = async (req: Request, res: Response) => {
@@ -57,6 +73,15 @@ export const getFanAssets = async (req: Request, res: Response) => {
     ])
     .toArray();
   return res.status(200).json(fanAssets);
+};
+
+export const getPostAssets = async (req: Request, res: Response) => {
+  const userId = new ObjectId(req.user!.userId);
+  const postAssets = await postAssetsRepository.aggregate([
+    {
+      $match: {},
+    },
+  ]);
 };
 
 export const uploadAndCreateAsset = async (req: Request, res: Response) => {

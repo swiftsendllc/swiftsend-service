@@ -26,6 +26,7 @@ export const Collections = {
   ASSETS: 'assets',
   CREATOR_ASSETS: 'creator_assets',
   FAN_ASSETS: 'fan_assets',
+  POST_ASSETS: 'post_assets',
 } as const;
 
 export const Env = {

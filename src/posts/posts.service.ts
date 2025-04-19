@@ -343,7 +343,6 @@ export const createPost = async (req: Request, res: Response) => {
   if (isExclusive && body.price! < 200) {
     return res.status(400).json({ message: 'MINIMUM PRICE IS 200 INR' });
   }
-
   const userId = new ObjectId(req.user!.userId);
   await postsRepository.insertOne({
     userId,
