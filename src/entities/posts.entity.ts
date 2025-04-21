@@ -3,8 +3,6 @@ import { ObjectId } from 'mongodb';
 export interface PostsEntity {
   userId: ObjectId;
   caption: string;
-  imageUrls: string[];
-  blurredImageUrls: string[] | null;
   likeCount: number;
   commentCount: number;
   shareCount: number;

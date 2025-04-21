@@ -10,6 +10,7 @@ import { Collections } from '../util/constants';
 import {
   commentsRepository,
   likesRepository,
+  postAssetsRepository,
   postsRepository,
   savesRepository,
   sharesRepository,
@@ -253,6 +254,33 @@ export const getPost = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.POST_ASSETS,
+          foreignField: 'postId',
+          localField: '_id',
+          as: '_post_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          foreignField: '_id',
+          localField: '_post_assets.assetId',
+          as: '_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
         $set: {
           isLiked: {
             $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
@@ -276,37 +304,37 @@ export const getPost = async (req: Request, res: Response) => {
               false,
             ],
           },
-          imageUrls: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$userId', userId] },
-                  { $eq: ['$isExclusive', false] },
-                ],
+          _assets: {
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$userId', userId] },
+                        { $eq: ['$isExclusive', false] },
+                      ],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$imageUrls',
-              '$blurredImageUrls',
-            ],
+            },
           },
         },
-      },
-      {
-        $lookup: {
-          from: Collections.USER_PROFILES,
-          localField: 'userId',
-          foreignField: 'userId',
-          as: 'user',
-        },
-      },
-      {
-        $unwind: '$user',
       },
       {
         $project: {
           _likes: 0,
           _saves: 0,
           _following: 0,
+          _purchased: 0,
+          _post_assets: 0,
         },
       },
       {
@@ -335,16 +363,11 @@ export const getPost = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
   const body = req.body as CreatePostInput;
-  if (!body.blurredImageUrls || !body.imageUrls) {
-    return res.status(400).json({ message: 'BODY NOT FOUND!' });
-  }
   const isExclusive = body.isExclusive;
+  const assets = body.assetIds;
 
-  if (isExclusive && body.price! < 200) {
-    return res.status(400).json({ message: 'MINIMUM PRICE IS 200 INR' });
-  }
   const userId = new ObjectId(req.user!.userId);
-  await postsRepository.insertOne({
+  const { insertedId } = await postsRepository.insertOne({
     userId,
     likeCount: 0,
     saveCount: 0,
@@ -356,11 +379,20 @@ export const createPost = async (req: Request, res: Response) => {
     createdAt: new Date(),
     purchasedBy: [userId],
     isExclusive: isExclusive,
-    imageUrls: body.imageUrls,
     price: isExclusive ? body.price : null,
-    blurredImageUrls: body.blurredImageUrls,
   });
   await updatePostCount(userId, 1);
+  await Promise.all(
+    assets.map(async (assetId) => {
+      await postAssetsRepository.insertOne({
+        assetId: new ObjectId(assetId),
+        createdAt: new Date(),
+        deletedAt: null,
+        postId: insertedId,
+        updatedAt: new Date(),
+      });
+    }),
+  );
 
   await redis.del(timelineKey);
   return res.json({ message: 'POST IS CREATED' });

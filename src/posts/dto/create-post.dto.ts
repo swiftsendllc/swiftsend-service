@@ -1,7 +1,8 @@
+import { ObjectId } from 'mongodb';
+
 export interface CreatePostInput {
   caption: string;
-  imageUrls: string[];
-  blurredImageUrls:string[] | null
-  isExclusive:boolean;
-  price:number | null
+  isExclusive: boolean;
+  price: number | null;
+  assetIds: ObjectId[];
 }
