@@ -31,21 +31,21 @@ router.get('/posts/creators/:userId', auth, getCreatorPosts);
 
 router.post('/posts/create', auth, createPost);
 
-router.delete('/posts/:id/delete', auth, deletePost);
+router.delete('/posts/:postId/delete', auth, deletePost);
 
 router.patch('/posts/:postId/edit', auth, editPost);
 
-router.put('/posts/:id/like', auth, likePost);
+router.put('/posts/:postId/like', auth, likePost);
 
-router.put('/posts/:id/create-comment', auth, createComment);
+router.put('/posts/:postId/create-comment', auth, createComment);
 
 router.delete('/posts/:postId/comments/:commentId', auth, deleteComment);
 
-router.put('/posts/:id/save', auth, savePost);
+router.put('/posts/:postId/save', auth, savePost);
 
-router.post('/posts/:id/share', auth, sharePost);
+router.post('/posts/:postId/share', auth, sharePost);
 
-router.get('/posts/:id/likes', auth, getPostLikes);
+router.get('/posts/:postId/likes', auth, getPostLikes);
 
 router.get('/posts/user/liked', auth, getLikedPosts);
 
