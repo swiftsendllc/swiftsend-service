@@ -26,7 +26,7 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
   const result = await postsRepository
     .aggregate([
       {
-        $match: { userId },
+        $match: { userId: userId },
       },
       {
         $lookup: {
@@ -77,6 +77,33 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.USER_PROFILES,
+          localField: 'userId',
+          foreignField: 'userId',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $lookup: {
+          from: Collections.POST_ASSETS,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_post_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          foreignField: '_id',
+          localField: '_post_assets.assetId',
+          as: '_assets',
+        },
+      },
+      {
         $set: {
           isLiked: {
             $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
@@ -97,35 +124,35 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
               false,
             ],
           },
-          imageUrls: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$userId', userId] },
-                  { $eq: ['$isExclusive', false] },
-                ],
+          _assets: {
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$userId', userId] },
+                        { $eq: ['$isExclusive', false] },
+                      ],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$imageUrls',
-              '$blurredImageUrls',
-            ],
+            },
           },
         },
       },
       {
-        $lookup: {
-          from: Collections.USER_PROFILES,
-          localField: 'userId',
-          foreignField: 'userId',
-          as: 'user',
-        },
-      },
-      {
-        $unwind: '$user',
-      },
-      {
         $project: {
           _likes: 0,
+          _post_assets: 0,
+          _saves: 0,
         },
       },
       {
@@ -145,6 +172,8 @@ export const getPosts = async (req: Request, res: Response) => {
 };
 
 export const getCreatorPosts = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.userId)) return res.status(400).json({ message: 'INVALID ID' });
+
   const userId = new ObjectId(req.user!.userId);
   const creatorId = new ObjectId(req.params.userId);
 
@@ -399,7 +428,9 @@ export const createPost = async (req: Request, res: Response) => {
 };
 
 export const deletePost = async (req: Request, res: Response) => {
-  const postId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
+
+  const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
   await postsRepository.deleteOne({ userId, _id: postId });
 
@@ -417,7 +448,9 @@ export const editPost = async (req: Request, res: Response) => {
 };
 
 export const likePost = async (req: Request, res: Response) => {
-  const postId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'POST ID NOT FOUND!' });
+
+  const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
   const liked = await likesRepository.findOne({ userId, postId });
@@ -451,8 +484,10 @@ export const likePost = async (req: Request, res: Response) => {
 };
 
 export const createComment = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
+
   const body = req.body as CommentPostInput;
-  const postId = new ObjectId(req.params.id);
+  const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
   const post = await postsRepository.findOneAndUpdate(
@@ -477,6 +512,8 @@ export const createComment = async (req: Request, res: Response) => {
 };
 
 export const deleteComment = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
+
   const postId = new ObjectId(req.params.postId);
   const commentId = new ObjectId(req.params.commentId);
   const userId = new ObjectId(req.user!.userId);
@@ -496,8 +533,10 @@ export const deleteComment = async (req: Request, res: Response) => {
 };
 
 export const savePost = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'POST ID NOT FOUND!' });
+
   const userId = new ObjectId(req.user!.userId);
-  const postId = new ObjectId(req.params.id);
+  const postId = new ObjectId(req.params.postId);
   const saved = await savesRepository.findOne({ userId, postId });
   if (saved) {
     await savesRepository.deleteOne({ userId, postId });
@@ -540,6 +579,12 @@ export const getSavedPosts = async (req: Request, res: Response) => {
         },
       },
       {
+        $unwind: {
+          path: '$post',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $lookup: {
           from: Collections.PURCHASES,
           localField: 'postId',
@@ -553,50 +598,47 @@ export const getSavedPosts = async (req: Request, res: Response) => {
         },
       },
       {
-        $unwind: {
-          path: '$post',
-          preserveNullAndEmptyArrays: true,
+        $lookup: {
+          from: Collections.POST_ASSETS,
+          localField: 'postId',
+          foreignField: 'postId',
+          as: '_post_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          localField: '_post_assets.assetId',
+          foreignField: '_id',
+          as: '_assets',
         },
       },
       {
         $set: {
-          imageUrls: {
-            $cond: [
-              {
-                $or: [
-                  { $eq: ['$$post.userId', userId] },
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$$post.isExclusive', false] },
-                ],
+          _assets: {
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [{ $gt: [{ $size: '$_purchased' }, 0] }],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$post.imageUrls',
-              '$post.blurredImageUrls',
-            ],
+            },
           },
         },
       },
       {
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              '$post',
-              {
-                imageUrls: {
-                  $cond: [
-                    {
-                      $or: [
-                        { $gt: [{ $size: '$_purchased' }, 0] },
-                        { $eq: ['$$post.userId', userId] },
-                        { $eq: ['$$post.isExclusive', false] },
-                      ],
-                    },
-                    '$post.imageUrls',
-                    '$post.blurredImageUrls',
-                  ],
-                },
-              },
-            ],
-          },
+        $project: {
+          _purchased: 0,
+          _post_assets: 0,
         },
       },
     ])
@@ -638,44 +680,47 @@ export const getLikedPosts = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.POST_ASSETS,
+          localField: 'postId',
+          foreignField: 'postId',
+          as: '_post_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          localField: '_post_assets.assetId',
+          foreignField: '_id',
+          as: '_assets',
+        },
+      },
+      {
         $set: {
-          imageUrls: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$$post.userId', userId] },
-                  { $eq: ['$$post.isExclusive', false] },
-                ],
+          _assets: {
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [{ $gt: [{ $size: '$_purchased' }, 0] }],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$post.imageUrls',
-              '$post.blurredImageUrls',
-            ],
+            },
           },
         },
       },
       {
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              '$post',
-              {
-                imageUrls: {
-                  $cond: [
-                    {
-                      $or: [
-                        { $gt: [{ $size: '$_purchased' }, 0] },
-                        { $eq: ['$$post.userId', userId] },
-                        { $eq: ['$$post.isExclusive', false] },
-                      ],
-                    },
-                    '$post.imageUrls',
-                    '$post.blurredImageUrls',
-                  ],
-                },
-              },
-            ],
-          },
+        $project: {
+          _purchased: 0,
+          _post_assets: 0,
         },
       },
     ])
@@ -707,10 +752,12 @@ export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
 };
 
 export const sharePost = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
+
   const body = req.body as SharePostInput;
   const sharingUserId = new ObjectId(req.user!.userId);
   const sharedUserId = new ObjectId(body.sharedUserId);
-  const postId = new ObjectId(req.params.id);
+  const postId = new ObjectId(req.params.postId);
 
   await sharesRepository.insertOne({ postId, sharedUserId, sharingUserId, reelsId: null, storyId: null });
   await postsRepository.updateOne({ _id: postId }, { $inc: { shareCount: 1 } });
@@ -718,7 +765,9 @@ export const sharePost = async (req: Request, res: Response) => {
 };
 
 export const getPostLikes = async (req: Request, res: Response) => {
-  const postId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
+
+  const postId = new ObjectId(req.params.postId);
   const postLikes = await likesRepository
     .aggregate([
       {
@@ -752,7 +801,6 @@ export const getPostLikes = async (req: Request, res: Response) => {
 
 export const timeline = async (req: Request, res: Response) => {
   // const cache = await redis.get(timelineKey);
-
   // if (cache) return res.json(JSON.parse(cache));
 
   const userId = new ObjectId(req.user!.userId);
@@ -838,6 +886,22 @@ export const timeline = async (req: Request, res: Response) => {
         $unwind: '$user',
       },
       {
+        $lookup: {
+          from: Collections.POST_ASSETS,
+          localField: '_id',
+          foreignField: 'postId',
+          as: '_post_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          localField: '_post_assets.assetId',
+          foreignField: '_id',
+          as: '_assets',
+        },
+      },
+      {
         $set: {
           isLiked: {
             $cond: [{ $gt: [{ $size: '$_likes' }, 0] }, true, false],
@@ -847,6 +911,9 @@ export const timeline = async (req: Request, res: Response) => {
           },
           isFollowing: {
             $cond: [{ $or: [{ $gt: [{ $size: '$_following' }, 0] }, { $eq: ['$userId', userId] }] }, true, false],
+          },
+          isMyPost: {
+            $cond: [{ $eq: ['$userId', userId] }, true, false],
           },
           isPurchased: {
             $cond: [
@@ -861,21 +928,27 @@ export const timeline = async (req: Request, res: Response) => {
               false,
             ],
           },
-          imageUrls: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$userId', userId] },
-                  { $eq: ['$isExclusive', false] },
-                ],
+          _assets: {
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$userId', userId] },
+                        { $eq: ['$isExclusive', false] },
+                      ],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$imageUrls',
-              '$blurredImageUrls',
-            ],
-          },
-          isMyPost: {
-            $cond: [{ $eq: ['$userId', userId] }, true, false],
+            },
           },
         },
       },
@@ -885,7 +958,7 @@ export const timeline = async (req: Request, res: Response) => {
           _saves: 0,
           _purchased: 0,
           _following: 0,
-          blurredImageUrls: 0,
+          _post_assets: 0,
         },
       },
       {

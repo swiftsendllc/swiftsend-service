@@ -2,14 +2,10 @@ import bcryptjs from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
-import { UserProfilesEntity } from '../entities/user-profiles.entity';
-import { UsersEntity } from '../entities/users.entity';
-import { db } from '../rdb/mongodb';
-import { Collections } from '../util/constants';
+import { userProfilesRepository, usersRepository } from '../util/repositories';
 import { LoginInput } from './dto/login.dto';
 import { SignUpInput } from './dto/signup.dto';
 import { createToken } from './jwt.service';
-import { usersRepository, userProfilesRepository } from '../util/repositories';
 const saltRounds = 10;
 
 export const login = async (req: Request, res: Response) => {
