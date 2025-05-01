@@ -27,6 +27,7 @@ export const Collections = {
   CREATOR_ASSETS: 'creator_assets',
   FAN_ASSETS: 'fan_assets',
   POST_ASSETS: 'post_assets',
+  MESSAGE_ASSETS: 'message_assets',
 } as const;
 
 export const Env = {
@@ -59,4 +60,4 @@ export const Env = {
   EMAIL_PORT: process.env.EMAIL_PORT || '',
 };
 type EnvKeys = keyof typeof Env;
-export const ENV = (key: EnvKeys) => Env[key];
+export const getEnv = (key: EnvKeys) => Env[key];

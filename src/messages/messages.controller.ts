@@ -89,7 +89,7 @@ router.delete('/channels/messages/delete', auth, deleteMessages);
 
 router.delete('/channels/:id/delete', auth, deleteChannel);
 
-router.get('/channels/:id', auth, getChannelById);
+router.get('/channels/:channelId', auth, getChannelById);
 
 router.get('/channels/:channelId/messages', auth, getChannelMessages);
 

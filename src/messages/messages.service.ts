@@ -127,22 +127,14 @@ export const getChannels = async (req: Request, res: Response) => {
       },
       {
         $set: {
-          'isPurchased': {
+          isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
-          },
-          'lastMessage.imageUrls': {
-            $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$lastMessage.senderId', senderId] }] },
-              '$lastMessage.imageUrls',
-              '$lastMessage.blurredImageUrls',
-            ],
           },
         },
       },
       {
         $project: {
-          '_purchased': 0,
-          'lastMessage.blurredImageUrls': 0,
+          _purchased: 0,
         },
       },
       {
@@ -168,10 +160,9 @@ export const getChannels = async (req: Request, res: Response) => {
 };
 
 export const getChannelById = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.id)) {
-    return res.status(404).json({ error: 'Channel not found!' });
-  }
-  const channelId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.channelId)) return res.status(404).json({ error: 'Channel not found!' });
+
+  const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
   const [singleChannel] = await channelsRepository
     .aggregate([
@@ -243,23 +234,48 @@ export const getChannelById = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.MESSAGE_ASSETS,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: '_message_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          localField: '_message_assets.assetId',
+          foreignField: '_id',
+          as: '_assets',
+        },
+      },
+      {
         $set: {
-          'isPurchased': {
+          isUser: {
+            $cond: [{ $eq: ['$senderId', senderId] }, true, false],
+          },
+          isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
-          'lastMessage.imageUrls': {
+          _assets: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$lastMessage.senderId', senderId] }] },
-              '$lastMessage.imageUrls',
-              '$lastMessage.blurredImageUrls',
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$senderId', senderId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
+              '$$asset.originalURL',
+              '$$asset.blurredURL',
             ],
           },
         },
       },
       {
         $project: {
-          '_purchased': 0,
-          'lastMessage.blurredImageUrls': 0,
+          _purchased: 0,
+          _message_assets: 0,
         },
       },
     ])
@@ -281,9 +297,8 @@ export const getChannelById = async (req: Request, res: Response) => {
 };
 
 export const getChannelMessages = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.channelId)) {
-    return res.status(404).json({ error: 'The channel is not found!' });
-  }
+  if (!ObjectId.isValid(req.params.channelId)) return res.status(404).json({ error: 'The channel is not found!' });
+
   const channelId = new ObjectId(req.params.channelId);
   const userId = new ObjectId(req.user!.userId);
   const limit = parseInt(req.query.limit as string) || 20;
@@ -350,6 +365,22 @@ export const getChannelMessages = async (req: Request, res: Response) => {
         },
       },
       {
+        $lookup: {
+          from: Collections.MESSAGE_ASSETS,
+          localField: '_id',
+          foreignField: 'messageId',
+          as: '_message_assets',
+        },
+      },
+      {
+        $lookup: {
+          from: Collections.ASSETS,
+          localField: '_message_assets.assetId',
+          foreignField: '_id',
+          as: '_assets',
+        },
+      },
+      {
         $set: {
           isUser: {
             $cond: [{ $eq: ['$senderId', userId] }, true, false],
@@ -357,19 +388,25 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           isPurchased: {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
-          imageUrls: {
+          _assets: {
             $cond: [
-              { $or: [{ $gt: [{ $size: '$_purchased' }, 0] }, { $eq: ['$senderId', userId] }] },
-              '$imageUrls',
-              '$blurredImageUrls',
+              {
+                $or: [
+                  { $gt: [{ $size: '$_purchased' }, 0] },
+                  { $eq: ['$senderId', userId] },
+                  { $eq: ['$isExclusive', false] },
+                ],
+              },
+              '$$asset.originalURL',
+              '$$asset.blurredURL',
             ],
           },
         },
       },
       {
         $project: {
-          blurredImageUrls: 0,
           _purchased: 0,
+          _message_assets: 0,
         },
       },
       {
@@ -475,8 +512,6 @@ export const sendMessage = async (req: Request, res: Response) => {
   const newMessage = {
     channelId: channel._id,
     message: body.message,
-    imageUrls: body.imageUrls,
-    blurredImageUrls: body.blurredImageUrls,
     isExclusive: isExclusive,
     price: body.price,
     senderId,
@@ -543,8 +578,6 @@ export const forwardMessage = async (req: Request, res: Response) => {
   await messagesRepository.insertOne({
     channelId: channel._id,
     message: forwardedMessage.message,
-    imageUrls: forwardedMessage.imageUrls ?? null,
-    blurredImageUrls: forwardedMessage.blurredImageUrls ?? null,
     isExclusive: forwardedMessage.isExclusive,
     price: forwardedMessage.price,
     senderId,
@@ -1239,8 +1272,6 @@ export const sendMessageReply = async (req: Request, res: Response) => {
   const replyMessage = {
     channelId: channel._id,
     message: body.message,
-    imageUrls: body.imageUrls ?? null,
-    blurredImageUrls: body.blurredImageUrls ?? null,
     isExclusive: body.isExclusive,
     price: body.price ?? null,
     senderId,
@@ -1261,7 +1292,6 @@ export const sendMessageReply = async (req: Request, res: Response) => {
 
   await repliesRepository.insertOne({
     replierId: senderId,
-    imageUrls: body.imageUrls ?? null,
     message: body.message,
     messageId,
     receiverId,

@@ -1,17 +1,17 @@
 import * as AWS from '@aws-sdk/client-s3';
-import { ENV } from './constants';
+import { getEnv } from './constants';
 
 const s3 = new AWS.S3({
   region: 'auto',
-  endpoint: ENV('AWS_S3_ENDPOINT')!,
+  endpoint: getEnv('AWS_S3_ENDPOINT')!,
   credentials: {
-    accessKeyId: ENV('AWS_ACCESS_KEY_ID')!,
-    secretAccessKey: ENV('AWS_SECRET_ACCESS_KEY')!,
+    accessKeyId: getEnv('AWS_ACCESS_KEY_ID')!,
+    secretAccessKey: getEnv('AWS_SECRET_ACCESS_KEY')!,
   },
 });
 
-const bucketUrl = ENV('AWS_BUCKET_URL')!;
-const bucketName = ENV('AWS_BUCKET_NAME')!;
+const bucketUrl = getEnv('AWS_BUCKET_URL')!;
+const bucketName = getEnv('AWS_BUCKET_NAME')!;
 
 export async function uploadFile(input: {
   path: string;
@@ -31,9 +31,7 @@ export async function uploadFile(input: {
   return { path: input.path, url: `${bucketUrl}/${input.path}` };
 }
 
-export async function deleteFile(input: {
-  path: string;
-}) {
+export async function deleteFile(input: { path: string }) {
   await s3.deleteObject({
     Key: input.path,
     Bucket: bucketName,
