@@ -8,6 +8,7 @@ import { redis } from '../rdb/redis';
 import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
 import {
+  assetsRepository,
   commentsRepository,
   likesRepository,
   postAssetsRepository,
