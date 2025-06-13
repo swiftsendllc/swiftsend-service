@@ -3,10 +3,10 @@
   "version": "1.1.6",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "dev": "npx nodemon src/index.ts --watch",
+    "start:build": "tsc",
+    "start:dev": "npx nodemon src/index.ts --watch",
     "start": "node dist/src/index.js",
-    "release": "git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
+    "start:release": "git tag v$(node -p \"require('./package.json').version\") && git push origin v$(node -p \"require('./package.json').version\")",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org arijit-chhatui --project swiftsend ./dist && sentry-cli sourcemaps upload --org arijit-chhatui --project swiftsend ./dist"
   },
   "dependencies": {

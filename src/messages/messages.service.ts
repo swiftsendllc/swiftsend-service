@@ -26,6 +26,7 @@ import { DeleteMessagesInput } from './dto/delete-messages.dto';
 import { EditGroupMessageInput } from './dto/edit-group-message.dto';
 import { EditMessageInput } from './dto/edit-message.dto';
 import { GroupCreateInput } from './dto/group-create.dto';
+import { SendBroadcastInput } from './dto/send-broadcast.dto';
 import { SendGroupMessageInput } from './dto/send-group-message.dto';
 import { SendGroupReactionInput } from './dto/send-group-reaction.dto';
 import { SendGroupMessageReplyInput } from './dto/send-group-reply.dto';
@@ -258,17 +259,26 @@ export const getChannelById = async (req: Request, res: Response) => {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
           _assets: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$senderId', senderId] },
-                  { $eq: ['$isExclusive', false] },
-                ],
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$senderId', senderId] },
+                        { $eq: ['$isExclusive', false] },
+                      ],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$$asset.originalURL',
-              '$$asset.blurredURL',
-            ],
+            },
           },
         },
       },
@@ -389,17 +399,26 @@ export const getChannelMessages = async (req: Request, res: Response) => {
             $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
           },
           _assets: {
-            $cond: [
-              {
-                $or: [
-                  { $gt: [{ $size: '$_purchased' }, 0] },
-                  { $eq: ['$senderId', userId] },
-                  { $eq: ['$isExclusive', false] },
-                ],
+            $map: {
+              input: '$_assets',
+              as: 'asset',
+              in: {
+                _id: '$$asset._id',
+                originalURL: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $gt: [{ $size: '$_purchased' }, 0] },
+                        { $eq: ['$senderId', userId] },
+                        { $eq: ['$isExclusive', false] },
+                      ],
+                    },
+                    '$$asset.originalURL',
+                    '$$asset.blurredURL',
+                  ],
+                },
               },
-              '$$asset.originalURL',
-              '$$asset.blurredURL',
-            ],
+            },
           },
         },
       },
@@ -538,6 +557,8 @@ export const sendMessage = async (req: Request, res: Response) => {
 
 export const broadcast = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
+  const body = req.body as SendBroadcastInput;
+  const receiversId = body.receiversId;
 };
 
 export const editMessage = async (req: Request, res: Response) => {
