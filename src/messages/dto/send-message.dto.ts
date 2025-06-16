@@ -5,4 +5,5 @@ export interface MessageInput {
   message: string | null;
   isExclusive: boolean;
   price: number | null;
+  assetIds: ObjectId[];
 }

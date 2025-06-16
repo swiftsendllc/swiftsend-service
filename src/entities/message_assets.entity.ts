@@ -5,4 +5,5 @@ export interface MessageAssetsEntity {
   assetId: ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
 }

@@ -9,6 +9,7 @@ import { GroupReactionsEntity } from '../entities/group-reactions.entity';
 import { GroupRepliesEntity } from '../entities/group_replies.entity';
 import { GroupsEntity } from '../entities/groups.entity';
 import { LikesEntity } from '../entities/likes.entity';
+import { MessageAssetsEntity } from '../entities/message_assets.entity';
 import { MessagesEntity } from '../entities/messages.entity';
 import { PaymentsEntity } from '../entities/payments.entity';
 import { PostAssetsEntity } from '../entities/post_assets.entity';
@@ -53,3 +54,4 @@ export const creatorAssetsRepository = db.collection<CreatorAssetsEntity>(Collec
 export const reelsRepository = db.collection<ReelsEntity>(Collections.REELS);
 export const storiesRepository = db.collection<StoriesEntity>(Collections.STORIES);
 export const postAssetsRepository = db.collection<PostAssetsEntity>(Collections.POST_ASSETS);
+export const messageAssetsRepository = db.collection<MessageAssetsEntity>(Collections.MESSAGE_ASSETS);

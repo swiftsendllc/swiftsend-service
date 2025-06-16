@@ -11,11 +11,13 @@ import { ReactionsEntity } from '../entities/reactions.entity';
 import { UserProfilesEntity } from '../entities/user-profiles.entity';
 import { Collections } from '../util/constants';
 import {
+  assetsRepository,
   channelsRepository,
   groupMessagesRepository,
   groupReactionsRepository,
   groupRepliesRepository,
   groupsRepository,
+  messageAssetsRepository,
   messageReactionsRepository,
   messagesRepository,
   repliesRepository,
@@ -521,6 +523,9 @@ export const sendMessage = async (req: Request, res: Response) => {
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
   const isExclusive = body.isExclusive;
+  const assets = body.assetIds;
+
+  const assetIds = assets.map((id) => new ObjectId(id));
 
   if (!receiverId) {
     return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
@@ -548,11 +553,25 @@ export const sendMessage = async (req: Request, res: Response) => {
 
   const { insertedId } = await messagesRepository.insertOne(newMessage);
   Object.assign(newMessage, { _id: insertedId });
+  if (isExclusive) {
+    await Promise.all(
+      assets.map(async (assetId) => {
+        await messageAssetsRepository.insertOne({
+          assetId: new ObjectId(assetId),
+          createdAt: new Date(),
+          messageId: insertedId,
+          updatedAt: new Date(),
+          deletedAt: null,
+        });
+      }),
+    );
+  }
+  const messageAssets = await assetsRepository.find({ _id: { $in: assetIds } }).toArray();
 
   const senderProfile = await userProfilesRepository.findOne({ userId: senderId });
   const receiverSocketId = receiverId.toString();
   io.to(receiverSocketId).emit('newMessage', { ...newMessage, sender: senderProfile });
-  return res.json({ ...newMessage, sender: senderProfile });
+  return res.json({ ...newMessage, sender: senderProfile, _assets: messageAssets });
 };
 
 export const broadcast = async (req: Request, res: Response) => {
