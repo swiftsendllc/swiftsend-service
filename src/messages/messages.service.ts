@@ -520,25 +520,25 @@ export const deleteChannel = async (req: Request, res: Response) => {
 
 export const sendMessage = async (req: Request, res: Response) => {
   const body = req.body as MessageInput;
-  const senderId = new ObjectId(req.user!.userId);
+  const userId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
   const isExclusive = body.isExclusive;
   const assets = body.assetIds;
 
+  if (!isExclusive && body.message?.trim() === '') return res.status(400).json('Empty message!');
+  if (isExclusive && !assets.length) return res.status(404).json('Invalid request!');
+  if (!receiverId) return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
+
+  const message = body.message?.trim();
   const assetIds = assets.map((id) => new ObjectId(id));
-
-  if (!receiverId) {
-    return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
-  }
-
-  const channel = await getOrCreateChannel(senderId, receiverId);
+  const channel = await getOrCreateChannel(userId, receiverId);
 
   const newMessage = {
     channelId: channel._id,
-    message: body.message,
+    message,
     isExclusive: isExclusive,
     price: body.price,
-    senderId,
+    senderId: userId,
     receiverId,
     createdAt: new Date(),
     deletedAt: null,
@@ -548,29 +548,46 @@ export const sendMessage = async (req: Request, res: Response) => {
     delivered: false,
     seen: false,
     repliedTo: null,
-    purchasedBy: [senderId],
+    purchasedBy: [userId],
   } as WithId<MessagesEntity>;
 
   const { insertedId } = await messagesRepository.insertOne(newMessage);
   Object.assign(newMessage, { _id: insertedId });
-  if (isExclusive) {
-    await Promise.all(
-      assets.map(async (assetId) => {
-        await messageAssetsRepository.insertOne({
-          assetId: new ObjectId(assetId),
-          createdAt: new Date(),
-          messageId: insertedId,
-          updatedAt: new Date(),
-          deletedAt: null,
-        });
-      }),
-    );
-  }
-  const messageAssets = await assetsRepository.find({ _id: { $in: assetIds } }).toArray();
 
-  const senderProfile = await userProfilesRepository.findOne({ userId: senderId });
+  await Promise.all(
+    assets.map(async (assetId) => {
+      await messageAssetsRepository.insertOne({
+        assetId: new ObjectId(assetId),
+        createdAt: new Date(),
+        messageId: insertedId,
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+    }),
+  );
+
+  const isMessagePurchased = await messagesRepository.findOne({ _id: insertedId, purchasedBy: { $in: [userId] } });
+
+  const messageAssets = isExclusive
+    ? await assetsRepository
+        .aggregate([
+          {
+            $match: { _id: { $in: assetIds } },
+          },
+          {
+            $set: {
+              originalURL: {
+                $cond: [isMessagePurchased, '$originalURL', '$blurredURL'],
+              },
+            },
+          },
+        ])
+        .toArray()
+    : [];
+
+  const senderProfile = await userProfilesRepository.findOne({ userId: userId });
   const receiverSocketId = receiverId.toString();
-  io.to(receiverSocketId).emit('newMessage', { ...newMessage, sender: senderProfile });
+  io.to(receiverSocketId).emit('newMessage', { ...newMessage, sender: senderProfile, _assets: messageAssets });
   return res.json({ ...newMessage, sender: senderProfile, _assets: messageAssets });
 };
 
