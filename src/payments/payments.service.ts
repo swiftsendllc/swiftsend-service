@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { shake } from 'radash';
 import Stripe from 'stripe';
+import { io } from '..';
 import { CreateSubscriptionPlanInput } from '../users/dto/create-subscription_plan.dto';
 import { EditSubscriptionPlanInput } from '../users/dto/edit-subscription_plan.dto';
 import { getEnv } from '../util/constants';
@@ -160,7 +161,13 @@ export const webhook = async (req: Request, res: Response) => {
           userId,
         });
         await messagesRepository.updateOne({ _id: contentId }, { $addToSet: { purchasedBy: userId } });
+        io.to(paymentIntent.metadata.creatorId).emit('hasPurchased', {
+          messageId: contentId,
+          purchasedBy: [userId],
+          isPurchased: true,
+        });
         break;
+
       case 'subscription':
         const subscriptionPlans = await subscriptionPlansRepository.findOne({ _id: contentId, creatorId: creatorId });
         if (subscriptionPlans)
@@ -175,6 +182,7 @@ export const webhook = async (req: Request, res: Response) => {
             price: subscriptionPlans.price * 100,
           });
         break;
+
       default:
         return res.status(402).json({ error: 'SOMETHING WRONG HAPPENED' });
     }

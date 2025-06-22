@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
 import { shake } from 'radash';
 import { io, onlineUsers } from '..';
+import { AssetsEntity } from '../entities/assets.entity';
 import { ChannelsEntity } from '../entities/channels.entity';
 import { GroupMessagesEntity } from '../entities/group-messages.entity';
 import { GroupReactionsEntity } from '../entities/group-reactions.entity';
@@ -565,30 +566,20 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
     }),
   );
+  let messageAssets: AssetsEntity[] = [];
 
-  const isMessagePurchased = await messagesRepository.findOne({ _id: insertedId, purchasedBy: { $in: [userId] } });
-
-  const messageAssets = isExclusive
-    ? await assetsRepository
-        .aggregate([
-          {
-            $match: { _id: { $in: assetIds } },
-          },
-          {
-            $set: {
-              originalURL: {
-                $cond: [isMessagePurchased, '$originalURL', '$blurredURL'],
-              },
-            },
-          },
-        ])
-        .toArray()
-    : [];
+  const fetchedAssets = await assetsRepository.find({ _id: { $in: assetIds } }).toArray();
+  if (isExclusive) {
+    messageAssets = fetchedAssets.map((asset) => ({
+      ...asset,
+      originalURL: asset.blurredURL,
+    }));
+  }
 
   const senderProfile = await userProfilesRepository.findOne({ userId: userId });
   const receiverSocketId = receiverId.toString();
   io.to(receiverSocketId).emit('newMessage', { ...newMessage, sender: senderProfile, _assets: messageAssets });
-  return res.json({ ...newMessage, sender: senderProfile, _assets: messageAssets });
+  return res.json({ ...newMessage, sender: senderProfile, _assets: fetchedAssets });
 };
 
 export const broadcast = async (req: Request, res: Response) => {
