@@ -520,33 +520,28 @@ export const forwardMessage = async (req: Request, res: Response) => {
 };
 
 export const deleteMessage = async (req: Request, res: Response) => {
+  if (!ObjectId.isValid(req.params.messageId)) return res.status(404).json({ message: 'Invalid Message Id' });
   const messageId = new ObjectId(req.params.messageId);
   const userId = new ObjectId(req.user!.userId);
   const message = await messagesRepository.findOne({ _id: messageId });
-  if (!message) {
-    return res.status(404).json({ error: 'MESSAGE NOT FOUND!' });
-  }
+  if (!message) return res.status(404).json({ message: 'MESSAGE NOT FOUND!' });
+
   if (message.senderId.toString() !== userId.toString()) {
-    return res.status(403).json({ error: 'NOT AUTHORIZED TO DELETE THE MESSAGE!' });
+    return res.status(403).json({ message: 'NOT AUTHORIZED TO DELETE THE MESSAGE!' });
   }
-  const result = await messagesRepository.updateOne(
+  await messagesRepository.updateOne(
     { _id: messageId, senderId: userId },
-    { $set: { deleted: true, deletedAt: new Date(), message: '', imageURL: '' } },
+    { $set: { deleted: true, deletedAt: new Date(), message: 'You deleted this message' } },
   );
-  await messagesRepository.deleteOne({ senderId: userId, _id: messageId });
-  if (result.modifiedCount > 0) {
-    const receiverSocketId = message.receiverId.toString();
-    io.to(receiverSocketId).emit('messageDeleted', {
-      deleted: true,
-      deletedAt: new Date().toISOString(),
-      messageId: messageId.toString(),
-      imageURL: '',
-      message: '',
-    });
-    return res.status(200).json({ message: 'Message deleted successfully' });
-  } else {
-    return res.status(500).json({ error: 'Failed to delete message!' });
-  }
+  const deletedMessage = await messagesRepository.findOne({ _id: messageId });
+  const receiverSocketId = message.receiverId.toString();
+  io.to(receiverSocketId).emit('messageDeleted', {
+    deleted: true,
+    deletedAt: new Date().toISOString(),
+    messageId: messageId.toString(),
+    message: 'This message is deleted',
+  });
+  return res.status(200).json(deletedMessage);
 };
 
 export const sendMessageReactions = async (req: Request, res: Response) => {
