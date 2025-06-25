@@ -101,7 +101,7 @@ router.post('/messages/reactions', auth, sendMessageReactions);
 
 router.delete('/messages/reactions/:reactionId/delete', auth, deleteMessageReactions);
 
-router.patch('/messages/:id/edit', auth, editMessage);
+router.patch('/messages/:messageId/edit', auth, editMessage);
 
 router.delete('/messages/delete/:messageId', auth, deleteMessage);
 

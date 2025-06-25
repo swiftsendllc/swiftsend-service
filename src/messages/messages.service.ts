@@ -75,13 +75,8 @@ export const getChannels = async (req: Request, res: Response) => {
           foreignField: 'userId',
           as: 'receiver',
           pipeline: [
-            {
-              $match: {
-                _id: {
-                  $ne: senderId,
-                },
-              },
-            },
+            { $match: { _id: { $ne: senderId } } },
+            { $project: { userId: 1, username: 1, fullName: 1, avatarURL: 1 } },
           ],
         },
       },
@@ -97,48 +92,18 @@ export const getChannels = async (req: Request, res: Response) => {
           },
         },
       },
-
       {
         $lookup: {
           from: Collections.MESSAGES,
           localField: '_id',
           foreignField: 'channelId',
           as: 'lastMessage',
-          pipeline: [
-            {
-              $sort: {
-                createdAt: -1,
-              },
-            },
-            {
-              $limit: 1,
-            },
-          ],
+          pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }, { $project: { message: 1 } }],
         },
       },
       {
         $unwind: {
           path: '$lastMessage',
-        },
-      },
-      {
-        $lookup: {
-          from: Collections.PURCHASES,
-          localField: 'lastMessage._id',
-          foreignField: 'contentId',
-          as: '_purchased',
-        },
-      },
-      {
-        $set: {
-          isPurchased: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
-          },
-        },
-      },
-      {
-        $project: {
-          _purchased: 0,
         },
       },
       {
@@ -182,20 +147,13 @@ export const getChannelById = async (req: Request, res: Response) => {
           foreignField: 'userId',
           as: 'receiver',
           pipeline: [
-            {
-              $match: {
-                userId: {
-                  $ne: senderId,
-                },
-              },
-            },
+            { $match: { userId: { $ne: senderId } } },
+            { $project: { username: 1, avatarURL: 1, userId: 1, lastSeen: 1, fullName: 1 } },
           ],
         },
       },
       {
-        $unwind: {
-          path: '$receiver',
-        },
+        $unwind: { path: '$receiver' },
       },
       {
         $lookup: {
@@ -203,100 +161,16 @@ export const getChannelById = async (req: Request, res: Response) => {
           localField: '_id',
           foreignField: 'channelId',
           as: 'lastMessage',
-          pipeline: [
-            {
-              $sort: {
-                _id: -1,
-              },
-            },
-            {
-              $limit: 1,
-            },
-          ],
+          pipeline: [{ $sort: { _id: -1 } }, { $limit: 1 }, { $project: { createdAt: 1, message: 1 } }],
         },
       },
       {
-        $unwind: {
-          path: '$lastMessage',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: Collections.REPLIES,
-          localField: '_id',
-          foreignField: 'messageId',
-          as: 'reply',
-        },
-      },
-      {
-        $lookup: {
-          from: Collections.PURCHASES,
-          localField: 'lastMessage._id',
-          foreignField: 'contentId',
-          as: '_purchased',
-        },
-      },
-      {
-        $lookup: {
-          from: Collections.MESSAGE_ASSETS,
-          localField: '_id',
-          foreignField: 'messageId',
-          as: '_message_assets',
-        },
-      },
-      {
-        $lookup: {
-          from: Collections.ASSETS,
-          localField: '_message_assets.assetId',
-          foreignField: '_id',
-          as: '_assets',
-        },
-      },
-      {
-        $set: {
-          isUser: {
-            $cond: [{ $eq: ['$senderId', senderId] }, true, false],
-          },
-          isPurchased: {
-            $cond: [{ $gt: [{ $size: '$_purchased' }, 0] }, true, false],
-          },
-          _assets: {
-            $map: {
-              input: '$_assets',
-              as: 'asset',
-              in: {
-                _id: '$$asset._id',
-                originalURL: {
-                  $cond: [
-                    {
-                      $or: [
-                        { $gt: [{ $size: '$_purchased' }, 0] },
-                        { $eq: ['$senderId', senderId] },
-                        { $eq: ['$isExclusive', false] },
-                      ],
-                    },
-                    '$$asset.originalURL',
-                    '$$asset.blurredURL',
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-      {
-        $project: {
-          _purchased: 0,
-          _message_assets: 0,
-        },
+        $unwind: { path: '$lastMessage', preserveNullAndEmptyArrays: true },
       },
     ])
     .toArray();
 
-  if (!singleChannel) {
-    return res.status(404).json({ message: 'Channel is not found!' });
-  }
+  if (!singleChannel) return res.status(404).json({ message: 'Channel is not found!' });
 
   const receiverSocketData = onlineUsers.get(singleChannel.receiver.userId.toString());
   return res.json({
@@ -314,15 +188,13 @@ export const getChannelMessages = async (req: Request, res: Response) => {
 
   const channelId = new ObjectId(req.params.channelId);
   const userId = new ObjectId(req.user!.userId);
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = parseInt(req.query.limit as string) || 25;
   const offset = parseInt(req.query.offset as string) || 0;
 
   const channelMessages = await messagesRepository
     .aggregate([
       {
-        $match: {
-          channelId,
-        },
+        $match: { channelId },
       },
       {
         $lookup: {
@@ -330,6 +202,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           localField: 'senderId',
           foreignField: 'userId',
           as: 'sender',
+          pipeline: [{ $project: { userId: 1, fullName: 1, username: 1, avatarURL: 1, bannerURL: 1, region: 1 } }],
         },
       },
       {
@@ -344,6 +217,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
           localField: '_id',
           foreignField: 'repliedTo',
           as: 'repliedToMessage',
+          pipeline: [{ $project: { message: 1 } }],
         },
       },
       {
@@ -526,8 +400,8 @@ export const sendMessage = async (req: Request, res: Response) => {
   const isExclusive = body.isExclusive;
   const assets = body.assetIds;
 
-  if (!isExclusive && body.message?.trim() === '') return res.status(400).json('Empty message!');
-  if (isExclusive && !assets.length) return res.status(404).json('Invalid request!');
+  if (!isExclusive && body.message?.trim() === '') return res.status(400).json("Messages can't be empty");
+  if (isExclusive && !assets.length) return res.status(404).json("Assets can't be empty for exclusive messages!");
   if (!receiverId) return res.status(400).json({ message: 'RECEIVER ID NOT FOUND!' });
 
   const message = body.message?.trim();
@@ -589,28 +463,30 @@ export const broadcast = async (req: Request, res: Response) => {
 };
 
 export const editMessage = async (req: Request, res: Response) => {
-  const messageId = new ObjectId(req.params.id);
+  if (!ObjectId.isValid(req.params.messageId)) return res.status(404).json('INVALID MESSAGE ID!');
+  const messageId = new ObjectId(req.params.messageId);
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as EditMessageInput;
 
-  const result = await messagesRepository.updateOne(
+  if (!body.message) return res.status(400).json("MESSAGE CAN'T BE EMPTY!");
+
+  await messagesRepository.updateOne(
     { senderId, _id: messageId },
     { $set: { message: body.message, editedAt: new Date(), edited: true } },
   );
 
-  if (result.modifiedCount > 0) {
-    const updatedMessage = await messagesRepository.findOne({ _id: messageId });
-    if (updatedMessage) {
-      const receiverSocketId = updatedMessage.receiverId.toString();
-      io.to(receiverSocketId).emit('messageEdited', {
-        messageId: messageId.toString(),
-        message: body.message,
-        editedAt: updatedMessage.editedAt?.toISOString(),
-        edited: true,
-      });
-    }
+  const updatedMessage = await messagesRepository.findOne({ _id: messageId });
+  if (updatedMessage) {
+    const receiverSocketId = updatedMessage.receiverId.toString();
+    io.to(receiverSocketId).emit('messageEdited', {
+      messageId: messageId.toString(),
+      message: body.message,
+      editedAt: updatedMessage.editedAt?.toISOString(),
+      edited: true,
+    });
   }
-  return res.json(result);
+
+  return res.json(updatedMessage);
 };
 
 export const forwardMessage = async (req: Request, res: Response) => {
@@ -1033,9 +909,8 @@ export const getGroupMessages = async (req: Request, res: Response) => {
 };
 
 export const getGroupById = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.groupId)) {
-    return res.status(200).json({ message: 'INVALID ID!' });
-  }
+  if (!ObjectId.isValid(req.params.groupId)) return res.status(200).json({ message: 'INVALID ID!' });
+
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const [group] = await groupsRepository
@@ -1076,9 +951,8 @@ export const getGroupById = async (req: Request, res: Response) => {
 };
 
 export const editGroupMessage = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.messageId)) {
-    return res.status(400).json({ message: 'INVALID ID!' });
-  }
+  if (!ObjectId.isValid(req.params.messageId)) return res.status(400).json({ message: 'INVALID ID!' });
+
   const senderId = new ObjectId(req.user!.userId);
   const messageId = new ObjectId(req.params.messageId);
   const body = req.body as EditGroupMessageInput;
@@ -1104,9 +978,8 @@ export const editGroupMessage = async (req: Request, res: Response) => {
 };
 
 export const deleteGroupMessage = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.messageId)) {
-    return res.status(404).json({ error: 'MESSAGE ID NOT FOUND!' });
-  }
+  if (!ObjectId.isValid(req.params.messageId)) return res.status(404).json({ error: 'MESSAGE ID NOT FOUND!' });
+
   const senderId = new ObjectId(req.user!.userId);
   const messageId = new ObjectId(req.params.messageId);
   const messages = await groupMessagesRepository.findOne({ _id: messageId });
@@ -1130,9 +1003,8 @@ export const deleteGroupMessage = async (req: Request, res: Response) => {
 };
 
 export const leaveGroup = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.groupId)) {
-    return res.status(400).json({ message: 'INVALID ID' });
-  }
+  if (!ObjectId.isValid(req.params.groupId)) return res.status(400).json({ message: 'INVALID ID' });
+
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const isAdmin = await groupsRepository.findOne({ _id: groupId, admin: userId });
@@ -1146,29 +1018,23 @@ export const leaveGroup = async (req: Request, res: Response) => {
 };
 
 export const promoteToAdmin = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.groupId || req.params.moderatorId)) {
+  if (!ObjectId.isValid(req.params.groupId || req.params.moderatorId))
     return res.status(400).json({ message: 'INVALID ID' });
-  }
+
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const moderatorId = new ObjectId(req.params.moderatorId);
 
   const group = await groupsRepository.findOne({ _id: groupId });
 
-  if (!group) {
-    return res.status(404).json({ message: 'GROUP NOT FOUND!' });
-  }
+  if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!' });
 
   const isAdmin = group.adminId.equals(userId);
   const isModerator = group.moderators.map((id) => id.equals(moderatorId));
 
-  if (!isAdmin) {
-    return res.status(401).json({ message: 'UNAUTHORIZED!' });
-  }
+  if (!isAdmin) return res.status(401).json({ message: 'UNAUTHORIZED!' });
 
-  if (!isModerator) {
-    return res.status(400).json({ message: 'UPDATE MEMBER TO MODERATOR TO SET AS A ADMIN' });
-  }
+  if (!isModerator) return res.status(400).json({ message: 'UPDATE MEMBER TO MODERATOR TO SET AS A ADMIN' });
 
   const updatedGroup = await groupsRepository.findOneAndUpdate(
     { _id: groupId },
@@ -1180,17 +1046,14 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
 };
 
 export const kickMemberFromGroup = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.memberId)) {
-    return res.status(404).json({ message: 'ID NOT FOUND!' });
-  }
+  if (!ObjectId.isValid(req.params.memberId)) return res.status(404).json({ message: 'ID NOT FOUND!' });
+
   const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const memberId = new ObjectId(req.params.memberId);
   const group = await groupsRepository.findOne({ _id: groupId });
 
-  if (!group) {
-    return res.status(404).json({ message: 'GROUP NOT FOUND!❌' });
-  }
+  if (!group) return res.status(404).json({ message: 'GROUP NOT FOUND!❌' });
 
   const isModerator = await groupsRepository.findOne({ _id: groupId, moderators: { $in: [memberId] } });
   if (isModerator) {
@@ -1245,9 +1108,8 @@ export const demoteModeratorToMember = async (req: Request, res: Response) => {
 };
 
 export const getGroupMedia = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.groupId)) {
-    return res.status(200).json({ message: 'INVALID ID ❌' });
-  }
+  if (!ObjectId.isValid(req.params.groupId)) return res.status(200).json({ message: 'INVALID ID ❌' });
+
   const groupId = new ObjectId(req.params.groupId);
   const userId = new ObjectId(req.user!.userId);
   const groupMedia = await groupMessagesRepository
@@ -1320,8 +1182,8 @@ export const sendMessageReply = async (req: Request, res: Response) => {
   const replyMessage = {
     channelId: channel._id,
     message: body.message,
-    isExclusive: body.isExclusive,
-    price: body.price ?? null,
+    isExclusive: false,
+    price: 0,
     senderId,
     receiverId,
     createdAt: new Date(),
