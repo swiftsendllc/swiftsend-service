@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../auth/middleware';
+import { auth, validateObjectId } from '../auth/middleware';
 import {
   createComment,
   createPost,
@@ -25,27 +25,27 @@ router.get('/posts', auth, getPosts);
 
 router.get('/posts/timeline', auth, timeline);
 
-router.get('/posts/:postId', auth, getPost);
+router.get('/posts/:postId', validateObjectId(['postId']), auth, getPost);
 
-router.get('/posts/creators/:userId', auth, getCreatorPosts);
+router.get('/posts/creators/:creatorId', validateObjectId(['creatorId']), auth, getCreatorPosts);
 
 router.post('/posts/create', auth, createPost);
 
-router.delete('/posts/:postId/delete', auth, deletePost);
+router.delete('/posts/:postId/delete', validateObjectId(['postId']), auth, deletePost);
 
-router.patch('/posts/:postId/edit', auth, editPost);
+router.patch('/posts/:postId/edit', validateObjectId(['postId']), auth, editPost);
 
-router.put('/posts/:postId/like', auth, likePost);
+router.put('/posts/:postId/like', validateObjectId(['postId']), auth, likePost);
 
-router.put('/posts/:postId/create-comment', auth, createComment);
+router.put('/posts/:postId/create-comment', validateObjectId(['postId']), auth, createComment);
 
-router.delete('/posts/:postId/comments/:commentId', auth, deleteComment);
+router.delete('/posts/:postId/comments/:commentId', validateObjectId(['postId']), auth, deleteComment);
 
-router.put('/posts/:postId/save', auth, savePost);
+router.put('/posts/:postId/save', validateObjectId(['postId']), auth, savePost);
 
-router.post('/posts/:postId/share', auth, sharePost);
+router.post('/posts/:postId/share', validateObjectId(['postId']), auth, sharePost);
 
-router.get('/posts/:postId/likes', auth, getPostLikes);
+router.get('/posts/:postId/likes', validateObjectId(['postId']), auth, getPostLikes);
 
 router.get('/posts/user/liked', auth, getLikedPosts);
 

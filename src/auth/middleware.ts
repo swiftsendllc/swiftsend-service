@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { JwtPayload, verify } from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
 import { getEnv } from '../util/constants';
 export const auth = (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -11,4 +12,16 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   next();
+};
+
+export const validateObjectId = (parameters: string[]) => {
+  const validate = (req: Request, res: Response, next: NextFunction) => {
+    const isInvalid = parameters.some((parameter) => {
+      const id = req.params[parameter];
+      return !ObjectId.isValid(id);
+    });
+    if (isInvalid) return res.status(404).json({ message: `Invalid parameter` });
+    next();
+  };
+  return validate;
 };

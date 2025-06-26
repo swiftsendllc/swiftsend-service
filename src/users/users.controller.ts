@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Request, Router } from 'express';
 import multer from 'multer';
-import { auth } from '../auth/middleware';
+import { auth, validateObjectId } from '../auth/middleware';
 import { uploadFile } from '../util/upload';
 import {
   followProfile,
@@ -20,17 +20,17 @@ const router = Router();
 
 router.get('/users/search', auth, getUserProfiles);
 
-router.get('/users/:usernameOrId', auth, getUserProfileByUsernameOrId);
+router.get('/users/:usernameOrId', validateObjectId(['usernameOrId']), auth, getUserProfileByUsernameOrId);
 
 router.patch('/users/me/edit', auth, updateUserProfile);
 
-router.post('/users/:userId/follow-user', auth, followProfile);
+router.post('/users/:userId/follow-user', validateObjectId(['userId']), auth, followProfile);
 
-router.delete('/users/:userId/remove-follower', auth, unFollowProfile);
+router.delete('/users/:userId/remove-follower', validateObjectId(['userId']), auth, unFollowProfile);
 
-router.get('/users/:userId/followers', auth, getFollowers);
+router.get('/users/:userId/followers', validateObjectId(['userId']), auth, getFollowers);
 
-router.get('/users/:userId/following', auth, getFollowing);
+router.get('/users/:userId/following', validateObjectId(['userId']), auth, getFollowing);
 
 router.post('/send/report', sendReport);
 

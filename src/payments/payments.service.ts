@@ -291,18 +291,12 @@ export const createSubscriptionPlan = async (req: Request, res: Response) => {
 };
 
 export const getSubscriptionPlans = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.creatorId)) {
-    return res.status(404).json({ message: 'INVALID ID' });
-  }
   const userId = new ObjectId(req.params.creatorId);
   const subscriptionPlans = await subscriptionPlansRepository.find({ creatorId: userId }).toArray();
   return res.status(200).json(subscriptionPlans);
 };
 
 export const deleteSubscriptionPlan = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.subscription_plan_id)) {
-    return res.status(404).json({ error: 'INVALID ID' });
-  }
   const userId = new ObjectId(req.user!.userId);
   const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
   const planExists = await subscriptionPlansRepository.findOne({ _id: subscription_plan_id, creatorId: userId });
