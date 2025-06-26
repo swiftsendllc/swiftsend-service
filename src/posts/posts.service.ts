@@ -173,10 +173,8 @@ export const getPosts = async (req: Request, res: Response) => {
 };
 
 export const getCreatorPosts = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.userId)) return res.status(400).json({ message: 'INVALID ID' });
-
   const userId = new ObjectId(req.user!.userId);
-  const creatorId = new ObjectId(req.params.userId);
+  const creatorId = new ObjectId(req.params.creatorId);
 
   const result = await getPostsByUserId(creatorId, userId);
   return res.json(result);
@@ -429,8 +427,6 @@ export const createPost = async (req: Request, res: Response) => {
 };
 
 export const deletePost = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
-
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
   await postsRepository.deleteOne({ userId, _id: postId });
@@ -449,8 +445,6 @@ export const editPost = async (req: Request, res: Response) => {
 };
 
 export const likePost = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'POST ID NOT FOUND!' });
-
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
@@ -485,8 +479,6 @@ export const likePost = async (req: Request, res: Response) => {
 };
 
 export const createComment = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
-
   const body = req.body as CommentPostInput;
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
@@ -513,8 +505,6 @@ export const createComment = async (req: Request, res: Response) => {
 };
 
 export const deleteComment = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
-
   const postId = new ObjectId(req.params.postId);
   const commentId = new ObjectId(req.params.commentId);
   const userId = new ObjectId(req.user!.userId);
@@ -534,8 +524,6 @@ export const deleteComment = async (req: Request, res: Response) => {
 };
 
 export const savePost = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'POST ID NOT FOUND!' });
-
   const userId = new ObjectId(req.user!.userId);
   const postId = new ObjectId(req.params.postId);
   const saved = await savesRepository.findOne({ userId, postId });
@@ -753,8 +741,6 @@ export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
 };
 
 export const sharePost = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
-
   const body = req.body as SharePostInput;
   const sharingUserId = new ObjectId(req.user!.userId);
   const sharedUserId = new ObjectId(body.sharedUserId);
@@ -766,8 +752,6 @@ export const sharePost = async (req: Request, res: Response) => {
 };
 
 export const getPostLikes = async (req: Request, res: Response) => {
-  if (!ObjectId.isValid(req.params.postId)) return res.status(404).json({ message: 'INVALID POST ID!' });
-
   const postId = new ObjectId(req.params.postId);
   const postLikes = await likesRepository
     .aggregate([

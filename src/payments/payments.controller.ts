@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../auth/middleware';
+import { auth, validateObjectId } from '../auth/middleware';
 import {
   attachPaymentMethod,
   confirmCard,
@@ -23,10 +23,20 @@ router.post('/payments/attach-card', auth, attachPaymentMethod);
 
 router.post('/subscription/plan/create', auth, createSubscriptionPlan);
 
-router.get('/subscription/plans/:creatorId', auth, getSubscriptionPlans);
+router.get('/subscription/plans/:creatorId', validateObjectId(['creatorId']), auth, getSubscriptionPlans);
 
-router.patch('/subscription/plan/edit/:subscription_plan_id', auth, editSubscriptionPlan);
+router.patch(
+  '/subscription/plan/edit/:subscription_plan_id',
+  validateObjectId(['subscription_plan_id']),
+  auth,
+  editSubscriptionPlan,
+);
 
-router.delete('/subscription/plan/delete/:subscription_plan_id', auth, deleteSubscriptionPlan);
+router.delete(
+  '/subscription/plan/delete/:subscription_plan_id',
+  validateObjectId(['subscription_plan_id']),
+  auth,
+  deleteSubscriptionPlan,
+);
 
 export default router;

@@ -14,6 +14,7 @@ import morgan from 'morgan';
 import { Server } from 'socket.io';
 import assetsRouter from './assets/assets.controller';
 import loginRouter from './auth/auth.controller';
+import groupsRouter from './groups/groups.controller';
 import messagesRouter from './messages/messages.controller';
 import paymentsRouter from './payments/payments.controller';
 import { webhook } from './payments/payments.service';
@@ -63,6 +64,7 @@ app.use(
   messagesRouter,
   paymentsRouter,
   assetsRouter,
+  groupsRouter,
 );
 
 io.on('connection', (socket) => {
