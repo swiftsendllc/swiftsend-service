@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
-import { Collections, getEnv } from '../util/constants';
+import { Collections, configService } from '../util/constants';
 import { followersRepository, userProfilesRepository } from '../util/repositories';
 import { SendEmailInput } from './dto/send-email.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
@@ -334,16 +334,16 @@ export const sendReport = async (req: Request, res: Response) => {
   if (!to.length) return res.status(400).json({ message: 'Recipient not found!' });
   if (!body.text || !body.subject) return res.status(400).json({ message: 'Content not found!' });
   const transporter = nodemailer.createTransport({
-    host: getEnv('EMAIL_HOST'),
+    host: configService('EMAIL_HOST'),
     port: 587,
     secure: false,
     auth: {
-      user: getEnv('EMAIL'),
-      pass: getEnv('APP_PASSWORD'),
+      user: configService('EMAIL'),
+      pass: configService('APP_PASSWORD'),
     },
   });
   const info = await transporter.sendMail({
-    from: getEnv('EMAIL'),
+    from: configService('EMAIL'),
     to: to,
     subject: body.subject,
     text: body.text,

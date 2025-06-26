@@ -1,12 +1,12 @@
 import * as Sentry from '@sentry/node';
 import { httpIntegration, NodeOptions, rewriteFramesIntegration } from '@sentry/node';
-import { getEnv } from './constants';
+import { configService } from './constants';
 
 const sentryConfig: NodeOptions = {
-  dsn: getEnv('SENTRY_DSN'),
-  serverName: getEnv('SERVICE_NAME') || 'swiftsend',
-  environment: getEnv('NODE_ENV') ?? 'development',
-  release: getEnv('GIT_SHA'),
+  dsn: configService('SENTRY_DSN'),
+  serverName: configService('SERVICE_NAME') || 'swiftsend',
+  environment: configService('NODE_ENV') ?? 'development',
+  release: configService('GIT_SHA'),
   tracesSampleRate: 0,
   beforeSend(event, hint) {
     if (event.exception && event.exception.values && event.exception.values.length > 0) {
@@ -29,7 +29,7 @@ const sentryConfig: NodeOptions = {
 };
 
 export const sentry = () => {
-  if (getEnv('SENTRY_DSN')) {
+  if (configService('SENTRY_DSN')) {
     Sentry.init(sentryConfig);
   }
 };

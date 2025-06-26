@@ -19,7 +19,7 @@ import {
 
 const router = Router();
 
-router.get('/channels', auth, getChannels);
+router.get('/channels', auth, getChannels); //
 
 router.post('/channels/create/:receiverId', validateObjectId(['receiverId']), auth, createChannel);
 

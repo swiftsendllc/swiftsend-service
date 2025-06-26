@@ -60,4 +60,4 @@ export const Env = {
   EMAIL_PORT: process.env.EMAIL_PORT || '',
 };
 type EnvKeys = keyof typeof Env;
-export const getEnv = (key: EnvKeys) => Env[key];
+export const configService = (key: EnvKeys) => Env[key];
