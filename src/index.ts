@@ -7,7 +7,7 @@ sentry();
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
-import { getEnv } from './util/constants';
+import { configService } from './util/constants';
 
 import http from 'http';
 import morgan from 'morgan';
@@ -95,7 +95,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json('Internal server error');
 });
 
-const port = getEnv('PORT');
+const port = configService('PORT');
 
 server.listen(port, async () => {
   await redis.connect();

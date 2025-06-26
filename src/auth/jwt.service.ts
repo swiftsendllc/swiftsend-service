@@ -1,6 +1,6 @@
 import { sign } from 'jsonwebtoken';
-import { getEnv } from '../util/constants';
+import { configService } from '../util/constants';
 
 export const createToken = (input: { userId: string }) => {
-  return sign(input, getEnv('JWT_SECRET')!);
+  return sign(input, configService('JWT_SECRET')!);
 };
