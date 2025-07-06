@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
+import { shake } from 'radash';
 import { io, onlineUsers } from '..';
 import { AssetsEntity } from '../entities/assets.entity';
 import { ChannelsEntity } from '../entities/channels.entity';
@@ -21,6 +22,7 @@ import { SendBroadcastInput } from './dto/send-broadcast.dto';
 import { SendMessageReactionsInput } from './dto/send-message-reactions.dto';
 import { MessageInput } from './dto/send-message.dto';
 import { SendReplyInput } from './dto/send-reply.dto';
+import { UpdateChannelInput } from './dto/update-channel.dto';
 
 const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const channel = await channelsRepository.findOne({ users: { $all: [senderId, receiverId] } });
@@ -29,6 +31,12 @@ const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   const newChannel: WithId<ChannelsEntity> = {
     _id: new ObjectId(),
     users: [senderId, receiverId],
+    backgroundImage: 'none',
+    isMuted: false,
+    isPinned: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
   };
   await channelsRepository.insertOne(newChannel);
   return newChannel;
@@ -41,6 +49,24 @@ export const createChannel = async (req: Request, res: Response) => {
   const channel = await getOrCreateChannel(senderId, receiverId);
 
   return res.json(channel);
+};
+
+export const updateChannel = async (req: Request, res: Response) => {
+  const channelId = new ObjectId(req.params.channelId);
+  const body = req.body as UpdateChannelInput;
+  const updatedChannel = await channelsRepository.findOneAndUpdate(
+    { _id: channelId },
+    {
+      $set: shake({
+        backgroundImage: body.backgroundImage,
+        isMuted: body.isMuted,
+        isPinned: body.isPinned,
+      }),
+    },
+    { returnDocument: 'after' },
+  );
+
+  return res.status(200).json(updatedChannel);
 };
 
 export const getChannels = async (req: Request, res: Response) => {
@@ -130,7 +156,18 @@ export const getChannelById = async (req: Request, res: Response) => {
           as: 'receiver',
           pipeline: [
             { $match: { userId: { $ne: senderId } } },
-            { $project: { username: 1, avatarURL: 1, userId: 1, lastSeen: 1, fullName: 1 } },
+            {
+              $project: {
+                username: 1,
+                avatarURL: 1,
+                userId: 1,
+                lastSeen: 1,
+                fullName: 1,
+                region: 1,
+                bannerURL: 1,
+                createdAt: 1,
+              },
+            },
           ],
         },
       },
@@ -505,7 +542,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
 
   if (!message) return res.status(404).json({ message: 'NOT FOUND!' });
 
-  if (message.senderId !== userId) return res.status(403).json({ message: 'Unauthorized!' });
+  if (!message.senderId.equals(userId)) return res.status(403).json({ message: 'Unauthorized!' });
 
   await messagesRepository.updateOne(
     { _id: messageId, senderId: userId },
