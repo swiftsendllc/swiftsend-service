@@ -15,11 +15,14 @@ import {
   sendMessage,
   sendMessageReactions,
   sendMessageReply,
+  updateChannel,
 } from './messages.service';
 
 const router = Router();
 
-router.get('/channels', auth, getChannels); //
+router.get('/channels', auth, getChannels);
+
+router.patch('/channels/update/:channelId', validateObjectId(['channelId']), auth, updateChannel)
 
 router.post('/channels/create/:receiverId', validateObjectId(['receiverId']), auth, createChannel);
 
