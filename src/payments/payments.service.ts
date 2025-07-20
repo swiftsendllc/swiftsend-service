@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 import { io } from '..';
 import { CreateSubscriptionPlanInput } from '../users/dto/create-subscription_plan.dto';
 import { EditSubscriptionPlanInput } from '../users/dto/edit-subscription_plan.dto';
-import { configService } from '../util/constants';
+import { configService } from '../util/config';
 import {
   fanAssetsRepository,
   messagesRepository,
@@ -21,7 +21,7 @@ import { AttachPaymentMethodInput } from './dto/attach-payment.dto';
 import { ConfirmCardInput } from './dto/confirm-card.dto';
 import { CreatePaymentInput } from './dto/create-payment.dto';
 
-const stripe = new Stripe(configService('STRIPE_SECRET_KEY'), {
+const stripe = new Stripe(configService.STRIPE_SECRET_KEY, {
   apiVersion: '2025-02-24.acacia',
   appInfo: {
     name: 'stripe',
@@ -29,7 +29,7 @@ const stripe = new Stripe(configService('STRIPE_SECRET_KEY'), {
   },
   typescript: true,
 });
-const returnUrl = configService('DOMAIN');
+const returnUrl = configService.DOMAIN;
 
 export const createPayment = async (req: Request, res: Response) => {
   const userId = new ObjectId(req.user!.userId);
@@ -91,7 +91,7 @@ export const createPayment = async (req: Request, res: Response) => {
 
 export const webhook = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string;
-  const endPoint = configService('STRIPE_WEBHOOK_SECRET_KEY') as string;
+  const endPoint = configService.STRIPE_WEBHOOK_SECRET_KEY as string;
   let event: Stripe.Event;
 
   if (!sig && !endPoint) {
