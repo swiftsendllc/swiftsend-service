@@ -1,17 +1,17 @@
 import * as AWS from '@aws-sdk/client-s3';
-import { configService } from './constants';
+import { configService } from './config';
 
 const s3 = new AWS.S3({
   region: 'auto',
-  endpoint: configService('AWS_S3_ENDPOINT')!,
+  endpoint: configService.AWS_S3_ENDPOINT,
   credentials: {
-    accessKeyId: configService('AWS_ACCESS_KEY_ID')!,
-    secretAccessKey: configService('AWS_SECRET_ACCESS_KEY')!,
+    accessKeyId: configService.AWS_ACCESS_KEY_ID,
+    secretAccessKey: configService.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-const bucketUrl = configService('AWS_BUCKET_URL')!;
-const bucketName = configService('AWS_BUCKET_NAME')!;
+const bucketUrl = configService.AWS_BUCKET_URL;
+const bucketName = configService.AWS_BUCKET_NAME;
 
 export async function uploadFile(input: {
   path: string;
