@@ -4,11 +4,11 @@ import nodemailer from 'nodemailer';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
+import { configService } from '../util/config';
 import { Collections } from '../util/constants';
 import { followersRepository, userProfilesRepository } from '../util/repositories';
 import { SendEmailInput } from './dto/send-email.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
-import { configService } from '../util/config';
 
 export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
   await userProfilesRepository.updateOne({ userId }, { $inc: { postCount: count } });
@@ -27,10 +27,11 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
   const where = ObjectId.isValid(req.params.usernameOrId)
     ? { _id: new ObjectId(req.params.usernameOrId) }
     : { username: req.params.usernameOrId };
+
   const user = await userProfilesRepository.findOne(where);
-  if (!user) {
-    return res.status(404).json({ message: 'User not found!' });
-  }
+
+  if (!user) return res.status(404).json({ message: 'User not found!' });
+
   const isOnline = onlineUsers.get(user.userId.toString());
   const [userProfile] = await userProfilesRepository
     .aggregate([
@@ -120,9 +121,8 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
 
 export const getUserProfiles = async (req: Request, res: Response) => {
   const text = req.query.q as string;
-  if (!text) {
-    return res.status(400).json({ error: "Parameter can't be empty" });
-  }
+  if (!text) return res.status(400).json({ error: "Parameter can't be empty" });
+
   const result = await userProfilesRepository
     .aggregate([
       {
