@@ -20,7 +20,7 @@ const router = Router();
 
 router.get('/users/search', auth, getUserProfiles);
 
-router.get('/users/:usernameOrId', validateObjectId(['usernameOrId']), auth, getUserProfileByUsernameOrId);
+router.get('/users/:usernameOrId', auth, getUserProfileByUsernameOrId);
 
 router.patch('/users/me/edit', auth, updateUserProfile);
 
