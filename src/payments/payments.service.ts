@@ -22,7 +22,7 @@ import { ConfirmCardInput } from './dto/confirm-card.dto';
 import { CreatePaymentInput } from './dto/create-payment.dto';
 
 const stripe = new Stripe(configService.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia',
+  apiVersion: '2025-06-30.basil',
   appInfo: {
     name: 'stripe',
     version: '0.0.2',
@@ -31,7 +31,7 @@ const stripe = new Stripe(configService.STRIPE_SECRET_KEY, {
 });
 const returnUrl = configService.DOMAIN;
 
-export const createPayment = async (req: Request, res: Response) => {
+export const createPayment = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const creatorId = new ObjectId(req.query.creatorId as string);
   const body = req.body as CreatePaymentInput;
@@ -89,7 +89,7 @@ export const createPayment = async (req: Request, res: Response) => {
   }
 };
 
-export const webhook = async (req: Request, res: Response) => {
+export const webhook = async (req: Request, res: Response): Promise<any> => {
   const sig = req.headers['stripe-signature'] as string;
   const endPoint = configService.STRIPE_WEBHOOK_SECRET_KEY as string;
   let event: Stripe.Event;
@@ -189,7 +189,7 @@ export const webhook = async (req: Request, res: Response) => {
   }
 };
 
-export const attachPaymentMethod = async (req: Request, res: Response) => {
+export const attachPaymentMethod = async (req: Request, res: Response): Promise<any> => {
   try {
     const body = req.body as AttachPaymentMethodInput;
     const paymentMethodId = body.paymentMethodId;
@@ -236,7 +236,7 @@ export const attachPaymentMethod = async (req: Request, res: Response) => {
   }
 };
 
-export const confirmCard = async (req: Request, res: Response) => {
+export const confirmCard = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as ConfirmCardInput;
   const userId = new ObjectId(req.user!.userId);
   const userProfile = await userProfilesRepository.findOne({ userId: userId });
@@ -253,7 +253,7 @@ export const confirmCard = async (req: Request, res: Response) => {
   }
 };
 
-export const getCard = async (req: Request, res: Response) => {
+export const getCard = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const userProfile = await userProfilesRepository.findOne({ userId: userId });
   if (!userProfile) {
@@ -274,7 +274,7 @@ export const getCard = async (req: Request, res: Response) => {
   }
 };
 
-export const createSubscriptionPlan = async (req: Request, res: Response) => {
+export const createSubscriptionPlan = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as CreateSubscriptionPlanInput;
   await subscriptionPlansRepository.insertOne({
@@ -290,13 +290,13 @@ export const createSubscriptionPlan = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'SUBSCRIPTION PLAN CREATED SUCCESSFULLY' });
 };
 
-export const getSubscriptionPlans = async (req: Request, res: Response) => {
+export const getSubscriptionPlans = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.params.creatorId);
   const subscriptionPlans = await subscriptionPlansRepository.find({ creatorId: userId }).toArray();
   return res.status(200).json(subscriptionPlans);
 };
 
-export const deleteSubscriptionPlan = async (req: Request, res: Response) => {
+export const deleteSubscriptionPlan = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);
   const planExists = await subscriptionPlansRepository.findOne({ _id: subscription_plan_id, creatorId: userId });
@@ -309,7 +309,7 @@ export const deleteSubscriptionPlan = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'DELETED SUBSCRIPTION PLAN SUCCESSFULLY' });
 };
 
-export const editSubscriptionPlan = async (req: Request, res: Response) => {
+export const editSubscriptionPlan = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as EditSubscriptionPlanInput;
   const subscription_plan_id = new ObjectId(req.params.subscription_plan_id);

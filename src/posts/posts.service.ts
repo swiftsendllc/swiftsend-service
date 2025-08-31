@@ -8,7 +8,6 @@ import { redis } from '../rdb/redis';
 import { updatePostCount } from '../users/users.service';
 import { Collections } from '../util/constants';
 import {
-  assetsRepository,
   commentsRepository,
   likesRepository,
   postAssetsRepository,
@@ -166,13 +165,13 @@ const getPostsByUserId = async (userId: ObjectId, authUserId: ObjectId) => {
   return result;
 };
 
-export const getPosts = async (req: Request, res: Response) => {
+export const getPosts = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const result = await getPostsByUserId(userId, userId);
   return res.json(result);
 };
 
-export const getCreatorPosts = async (req: Request, res: Response) => {
+export const getCreatorPosts = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const creatorId = new ObjectId(req.params.creatorId);
 
@@ -180,7 +179,7 @@ export const getCreatorPosts = async (req: Request, res: Response) => {
   return res.json(result);
 };
 
-export const getPost = async (req: Request, res: Response) => {
+export const getPost = async (req: Request, res: Response): Promise<any> => {
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
@@ -389,7 +388,7 @@ export const getPost = async (req: Request, res: Response) => {
   return res.json(data);
 };
 
-export const createPost = async (req: Request, res: Response) => {
+export const createPost = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as CreatePostInput;
   const isExclusive = body.isExclusive;
   const assets = body.assetIds;
@@ -426,7 +425,7 @@ export const createPost = async (req: Request, res: Response) => {
   return res.json({ message: 'POST IS CREATED' });
 };
 
-export const deletePost = async (req: Request, res: Response) => {
+export const deletePost = async (req: Request, res: Response): Promise<any> => {
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
   await postsRepository.deleteOne({ userId, _id: postId });
@@ -436,7 +435,7 @@ export const deletePost = async (req: Request, res: Response) => {
   return res.json({ message: 'POST IS DELETED' });
 };
 
-export const editPost = async (req: Request, res: Response) => {
+export const editPost = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as UpdatePostInput;
   const postId = new ObjectId(req.query.postId as string);
   const userId = new ObjectId(req.user!.userId);
@@ -444,7 +443,7 @@ export const editPost = async (req: Request, res: Response) => {
   return res.json({ message: 'POST IS EDITED' });
 };
 
-export const likePost = async (req: Request, res: Response) => {
+export const likePost = async (req: Request, res: Response): Promise<any> => {
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
 
@@ -478,7 +477,7 @@ export const likePost = async (req: Request, res: Response) => {
   return res.json({ ...post, isLiked: true });
 };
 
-export const createComment = async (req: Request, res: Response) => {
+export const createComment = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as CommentPostInput;
   const postId = new ObjectId(req.params.postId);
   const userId = new ObjectId(req.user!.userId);
@@ -504,7 +503,7 @@ export const createComment = async (req: Request, res: Response) => {
   return res.status(404).json({ message: 'Post not found' });
 };
 
-export const deleteComment = async (req: Request, res: Response) => {
+export const deleteComment = async (req: Request, res: Response): Promise<any> => {
   const postId = new ObjectId(req.params.postId);
   const commentId = new ObjectId(req.params.commentId);
   const userId = new ObjectId(req.user!.userId);
@@ -523,7 +522,7 @@ export const deleteComment = async (req: Request, res: Response) => {
   return res.status(404).json({ message: 'Comment not found' });
 };
 
-export const savePost = async (req: Request, res: Response) => {
+export const savePost = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const postId = new ObjectId(req.params.postId);
   const saved = await savesRepository.findOne({ userId, postId });
@@ -552,7 +551,7 @@ export const savePost = async (req: Request, res: Response) => {
   return res.json({ ...post, isSaved: true });
 };
 
-export const getSavedPosts = async (req: Request, res: Response) => {
+export const getSavedPosts = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const savedPosts = await savesRepository
     .aggregate([
@@ -635,7 +634,7 @@ export const getSavedPosts = async (req: Request, res: Response) => {
   return res.json(savedPosts);
 };
 
-export const getLikedPosts = async (req: Request, res: Response) => {
+export const getLikedPosts = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const likedPosts = await likesRepository
     .aggregate([
@@ -717,7 +716,7 @@ export const getLikedPosts = async (req: Request, res: Response) => {
   return res.json(likedPosts);
 };
 
-export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
+export const getCommentsCreatedByYou = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const commentsByYou = await commentsRepository
     .aggregate([
@@ -740,7 +739,7 @@ export const getCommentsCreatedByYou = async (req: Request, res: Response) => {
   return res.json(commentsByYou);
 };
 
-export const sharePost = async (req: Request, res: Response) => {
+export const sharePost = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as SharePostInput;
   const sharingUserId = new ObjectId(req.user!.userId);
   const sharedUserId = new ObjectId(body.sharedUserId);
@@ -751,7 +750,7 @@ export const sharePost = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const getPostLikes = async (req: Request, res: Response) => {
+export const getPostLikes = async (req: Request, res: Response): Promise<any> => {
   const postId = new ObjectId(req.params.postId);
   const postLikes = await likesRepository
     .aggregate([
@@ -784,7 +783,7 @@ export const getPostLikes = async (req: Request, res: Response) => {
   return res.json({ postLikes });
 };
 
-export const timeline = async (req: Request, res: Response) => {
+export const timeline = async (req: Request, res: Response): Promise<any> => {
   // const cache = await redis.get(timelineKey);
   // if (cache) return res.json(JSON.parse(cache));
 

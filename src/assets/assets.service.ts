@@ -13,7 +13,7 @@ import {
 import { uploadFile } from '../util/upload';
 import { DeleteAssetsInput } from './dto/delete-assets.dto';
 
-export const deleteCreatorAssets = async (req: Request, res: Response) => {
+export const deleteCreatorAssets = async (req: Request, res: Response): Promise<any> => {
   const creatorId = new ObjectId(req.user!.userId);
   const body = req.body as DeleteAssetsInput;
   const validAssetIds = body.assetIds.filter((id) => ObjectId.isValid(id));
@@ -34,7 +34,7 @@ export const deleteCreatorAssets = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'THE ASSET IS DELETED SUCCESSFULLY' });
 };
 
-export const getCreatorAssets = async (req: Request, res: Response) => {
+export const getCreatorAssets = async (req: Request, res: Response): Promise<any> => {
   const creatorId = new ObjectId(req.user!.userId);
   const creatorAssets = await creatorAssetsRepository
     .aggregate([
@@ -55,7 +55,7 @@ export const getCreatorAssets = async (req: Request, res: Response) => {
   return res.status(200).json(creatorAssets);
 };
 
-export const getFanAssets = async (req: Request, res: Response) => {
+export const getFanAssets = async (req: Request, res: Response): Promise<any> => {
   const fanId = new ObjectId(req.user!.userId);
   const fanAssets = await fanAssetsRepository
     .aggregate([
@@ -75,7 +75,7 @@ export const getFanAssets = async (req: Request, res: Response) => {
   return res.status(200).json(fanAssets);
 };
 
-export const getPostAssets = async (req: Request, res: Response) => {
+export const getPostAssets = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const postAssets = await postAssetsRepository.aggregate([
     {
@@ -84,7 +84,7 @@ export const getPostAssets = async (req: Request, res: Response) => {
   ]);
 };
 
-export const uploadAndCreateAsset = async (req: Request, res: Response) => {
+export const uploadAndCreateAsset = async (req: Request, res: Response): Promise<any> => {
   if (!req.file) throw new Error('File is missing!');
   const file = req.file as Express.Multer.File;
   const creatorId = new ObjectId(req.user!.userId);
