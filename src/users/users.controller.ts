@@ -34,7 +34,7 @@ router.get('/users/:userId/following', validateObjectId(['userId']), auth, getFo
 
 router.post('/send/report', sendReport);
 
-router.post('/users/upload', auth, upload.single('file'), async (req: Request, res) => {
+router.post('/users/upload', auth, upload.single('file'), async (req: Request, res): Promise<any> => {
   if (!req.file) throw new Error('File is missing');
 
   const result = await uploadFile({

@@ -42,7 +42,7 @@ const getOrCreateChannel = async (senderId: ObjectId, receiverId: ObjectId) => {
   return newChannel;
 };
 
-export const createChannel = async (req: Request, res: Response) => {
+export const createChannel = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(req.params.receiverId);
 
@@ -51,7 +51,7 @@ export const createChannel = async (req: Request, res: Response) => {
   return res.json(channel);
 };
 
-export const updateChannel = async (req: Request, res: Response) => {
+export const updateChannel = async (req: Request, res: Response): Promise<any> => {
   const channelId = new ObjectId(req.params.channelId);
   const body = req.body as UpdateChannelInput;
   const updatedChannel = await channelsRepository.findOneAndUpdate(
@@ -69,7 +69,7 @@ export const updateChannel = async (req: Request, res: Response) => {
   return res.status(200).json(updatedChannel);
 };
 
-export const getChannels = async (req: Request, res: Response) => {
+export const getChannels = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const channelMessages = await channelsRepository
     .aggregate([
@@ -138,7 +138,7 @@ export const getChannels = async (req: Request, res: Response) => {
   return res.json(data);
 };
 
-export const getChannelById = async (req: Request, res: Response) => {
+export const getChannelById = async (req: Request, res: Response): Promise<any> => {
   const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
   const [singleChannel] = await channelsRepository
@@ -202,7 +202,7 @@ export const getChannelById = async (req: Request, res: Response) => {
   });
 };
 
-export const getChannelMessages = async (req: Request, res: Response) => {
+export const getChannelMessages = async (req: Request, res: Response): Promise<any> => {
   const channelId = new ObjectId(req.params.channelId);
   const userId = new ObjectId(req.user!.userId);
   const limit = parseInt(req.query.limit as string) || 25;
@@ -336,7 +336,7 @@ export const getChannelMessages = async (req: Request, res: Response) => {
   return res.json(channelMessages);
 };
 // needs to be fixed for all media
-export const getChannelMedia = async (req: Request, res: Response) => {
+export const getChannelMedia = async (req: Request, res: Response): Promise<any> => {
   const channelId = new ObjectId(req.params.channelId);
   const media = await messagesRepository
     .aggregate([
@@ -353,7 +353,7 @@ export const getChannelMedia = async (req: Request, res: Response) => {
   return res.status(200).json(media);
 };
 
-export const deleteMessages = async (req: Request, res: Response) => {
+export const deleteMessages = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as DeleteMessagesInput;
   const validMessageIds = body.messageIds.filter((id) => ObjectId.isValid(id));
 
@@ -379,7 +379,7 @@ export const deleteMessages = async (req: Request, res: Response) => {
   }
   return res.status(200).json(!!result);
 };
-export const deleteChannel = async (req: Request, res: Response) => {
+export const deleteChannel = async (req: Request, res: Response): Promise<any> => {
   const channelId = new ObjectId(req.params.channelId);
   const senderId = new ObjectId(req.user!.userId);
 
@@ -391,7 +391,7 @@ export const deleteChannel = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'Channel deleted successfully' });
 };
 
-export const sendMessage = async (req: Request, res: Response) => {
+export const sendMessage = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as MessageInput;
   const userId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(body.receiverId);
@@ -454,13 +454,13 @@ export const sendMessage = async (req: Request, res: Response) => {
   return res.json({ ...newMessage, sender: senderProfile, _assets: fetchedAssets });
 };
 
-export const broadcast = async (req: Request, res: Response) => {
+export const broadcast = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as SendBroadcastInput;
   const receiversId = body.receiversId;
 };
 
-export const editMessage = async (req: Request, res: Response) => {
+export const editMessage = async (req: Request, res: Response): Promise<any> => {
   const messageId = new ObjectId(req.params.messageId);
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as EditMessageInput;
@@ -486,7 +486,7 @@ export const editMessage = async (req: Request, res: Response) => {
   return res.json(updatedMessage);
 };
 
-export const forwardMessage = async (req: Request, res: Response) => {
+export const forwardMessage = async (req: Request, res: Response): Promise<any> => {
   const messageId = new ObjectId(req.params.messageId);
   const senderId = new ObjectId(req.user!.userId);
   const receiverId = new ObjectId(req.params.receiverId);
@@ -516,7 +516,7 @@ export const forwardMessage = async (req: Request, res: Response) => {
   return res.json({ message: 'MESSAGE DELETED forwarded' });
 };
 
-export const deleteMessage = async (req: Request, res: Response) => {
+export const deleteMessage = async (req: Request, res: Response): Promise<any> => {
   const messageId = new ObjectId(req.params.messageId);
   const userId = new ObjectId(req.user!.userId);
   const message = await messagesRepository.findOne({ _id: messageId });
@@ -542,7 +542,7 @@ export const deleteMessage = async (req: Request, res: Response) => {
   return res.status(200).json(deletedMessage);
 };
 
-export const sendMessageReactions = async (req: Request, res: Response) => {
+export const sendMessageReactions = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as SendMessageReactionsInput;
   const messageId = new ObjectId(body.messageId);
   const userId = new ObjectId(req.user!.userId);
@@ -569,7 +569,7 @@ export const sendMessageReactions = async (req: Request, res: Response) => {
   return res.status(200).json(reaction);
 };
 
-export const deleteMessageReactions = async (req: Request, res: Response) => {
+export const deleteMessageReactions = async (req: Request, res: Response): Promise<any> => {
   try {
     const reactionId = new ObjectId(req.params.reactionId);
     const userId = new ObjectId(req.user!.userId);
@@ -595,7 +595,7 @@ export const deleteMessageReactions = async (req: Request, res: Response) => {
   }
 };
 
-export const sendMessageReply = async (req: Request, res: Response) => {
+export const sendMessageReply = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendReplyInput;
 

@@ -22,6 +22,7 @@ import { webhook } from './payments/payments.service';
 import postsRouter from './posts/posts.controller';
 import { redis } from './rdb/redis';
 import reelsRouter from './reels/reels.controller';
+import scrapeRouter from './scraper/scrape.controller';
 import storiesRouter from './stories/stories.controller';
 import usersRouter from './users/users.controller';
 
@@ -66,6 +67,7 @@ app.use(
   paymentsRouter,
   assetsRouter,
   groupsRouter,
+  scrapeRouter,
 );
 
 io.on('connection', (socket) => {

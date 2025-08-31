@@ -22,19 +22,19 @@ const getReelsByUserId = async (userId: ObjectId) => {
   return result;
 };
 
-export const getReels = async (req: Request, res: Response) => {
+export const getReels = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const result = await getReelsByUserId(userId);
   return res.json(result);
 };
 
-export const getCreatorReels = async (req: Request, res: Response) => {
+export const getCreatorReels = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.params.userId);
   const result = await getReelsByUserId(userId);
   return res.json(result);
 };
 
-export const createReel = async (req: Request, res: Response) => {
+export const createReel = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as CreateReelsInput;
   const userId = new ObjectId(req.user!.userId);
   await reelsRepository.insertOne({
@@ -51,7 +51,7 @@ export const createReel = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const editReel = async (req: Request, res: Response) => {
+export const editReel = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as UpdateReelInput;
   const reelsId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
@@ -59,7 +59,7 @@ export const editReel = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const deleteReel = async (req: Request, res: Response) => {
+export const deleteReel = async (req: Request, res: Response): Promise<any> => {
   const reelsId = new ObjectId(req.params.id);
   const userId = new ObjectId(req.user!.userId);
   await reelsRepository.deleteOne({ userId, _id: reelsId });
@@ -67,7 +67,7 @@ export const deleteReel = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const likeReel = async (req: Request, res: Response) => {
+export const likeReel = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const reelsId = new ObjectId(req.params.id);
 
@@ -99,7 +99,7 @@ export const likeReel = async (req: Request, res: Response) => {
   return res.json({ reel, like });
 };
 
-export const createComment = async (req: Request, res: Response) => {
+export const createComment = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as CommentReelInput;
   const userId = new ObjectId(req.user!.userId);
   const reelsId = new ObjectId(req.params.id);
@@ -123,7 +123,7 @@ export const createComment = async (req: Request, res: Response) => {
   return res.status(404).json('Reel not found ');
 };
 
-export const deleteComment = async (req: Request, res: Response) => {
+export const deleteComment = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const commentId = new ObjectId(req.params.id);
 
@@ -139,7 +139,7 @@ export const deleteComment = async (req: Request, res: Response) => {
   return res.status(404).json('Reel not found');
 };
 
-export const saveReel = async (req: Request, res: Response) => {
+export const saveReel = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const reelsId = new ObjectId(req.params.id);
   const saved = await savesRepository.findOne({ userId, reelsId });
@@ -154,7 +154,7 @@ export const saveReel = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const shareReel = async (req: Request, res: Response) => {
+export const shareReel = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as ShareReelInput;
   const sharingUserId = new ObjectId(req.user!.userId);
   const sharedUserId = new ObjectId(body.shareUserId);
@@ -166,7 +166,7 @@ export const shareReel = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const getLikes = async (req: Request, res: Response) => {
+export const getLikes = async (req: Request, res: Response): Promise<any> => {
   const reelsId = new ObjectId(req.params.id);
   const liked = await likesRepository
     .aggregate([

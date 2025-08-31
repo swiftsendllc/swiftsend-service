@@ -11,19 +11,19 @@ const getStoriesByUserId = async (userId: ObjectId) => {
   return result;
 };
 
-export const getStories = async (req: Request, res: Response) => {
+export const getStories = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const result = await getStoriesByUserId(userId);
   return res.json(result);
 };
 
-export const getCreatorStories = async (req: Request, res: Response) => {
+export const getCreatorStories = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.params.userId);
   const result = await getStoriesByUserId(userId);
   return res.json(result);
 };
 
-export const createStory = async (req: Request, res: Response) => {
+export const createStory = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as CreateStoryInput;
 
@@ -37,7 +37,7 @@ export const createStory = async (req: Request, res: Response) => {
   return res.json({ message: 'ok' });
 };
 
-export const likeStory = async (req: Request, res: Response) => {
+export const likeStory = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const storyId = new ObjectId(req.params.id);
 
@@ -58,9 +58,8 @@ export const likeStory = async (req: Request, res: Response) => {
 
   return res.json({ story, like });
 };
-export const commentStory = async (req: Request, res: Response) => {};
 
-export const getLikesStory = async (req: Request, res: Response) => {
+export const getLikesStory = async (req: Request, res: Response): Promise<any> => {
   const storyId = new ObjectId(req.params.id);
   const liked = await likesRepository
     .aggregate([
@@ -93,13 +92,13 @@ export const getLikesStory = async (req: Request, res: Response) => {
   return res.json({ liked });
 };
 
-export const deleteStory = async (req: Request, res: Response) => {
+export const deleteStory = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   await storiesRepository.deleteOne({ userId });
   return res.json({ message: 'ok' });
 };
 
-export const shareStory = async (req: Request, res: Response) => {
+export const shareStory = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as ShareStoryInput;
   const sharingUserId = new ObjectId(req.params.userId);
   const sharedUserId = new ObjectId(body.sharedUserId);

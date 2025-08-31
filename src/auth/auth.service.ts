@@ -8,7 +8,7 @@ import { SignUpInput } from './dto/signup.dto';
 import { createToken } from './jwt.service';
 const saltRounds = 10;
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const body = req.body as LoginInput;
     const email = body.email.toLowerCase().trim();
@@ -29,7 +29,7 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const signup = async (req: Request, res: Response) => {
+export const signup = async (req: Request, res: Response): Promise<any> => {
   try {
     const body = req.body as SignUpInput;
 
@@ -87,7 +87,7 @@ export const signup = async (req: Request, res: Response) => {
   }
 };
 
-export const getAuthUser = async (req: Request, res: Response) => {
+export const getAuthUser = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const user = await usersRepository.findOne({
     _id: userId,

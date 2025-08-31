@@ -22,7 +22,7 @@ import {
   userProfilesRepository,
 } from '../util/repositories';
 
-export const createGroup = async (req: Request, res: Response) => {
+export const createGroup = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const body = req.body as GroupCreateInput;
   const newGroup: WithId<GroupsEntity> = {
@@ -40,7 +40,7 @@ export const createGroup = async (req: Request, res: Response) => {
   return res.status(200).json(newGroup);
 };
 
-export const updateGroup = async (req: Request, res: Response) => {
+export const updateGroup = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const body = req.body as UpdateGroupInput;
   console.log(req.params.groupId);
@@ -60,7 +60,7 @@ export const updateGroup = async (req: Request, res: Response) => {
   return res.status(200).json({ ...group });
 };
 
-export const deleteGroup = async (req: Request, res: Response) => {
+export const deleteGroup = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
 
@@ -74,7 +74,7 @@ export const deleteGroup = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'OK' });
 };
 
-export const addMemberToGroup = async (req: Request, res: Response) => {
+export const addMemberToGroup = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const memberId = new ObjectId(req.params.memberId);
   const groupId = new ObjectId(req.params.groupId);
@@ -95,7 +95,7 @@ export const addMemberToGroup = async (req: Request, res: Response) => {
   return res.status(200).json({ ...updatedGroup });
 };
 
-export const updateMemberToModerator = async (req: Request, res: Response) => {
+export const updateMemberToModerator = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const group = await groupsRepository.findOne({ _id: groupId });
@@ -117,7 +117,7 @@ export const updateMemberToModerator = async (req: Request, res: Response) => {
   }
 };
 
-export const getGroups = async (req: Request, res: Response) => {
+export const getGroups = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const groupData = await groupsRepository
     .aggregate([
@@ -156,7 +156,7 @@ export const getGroups = async (req: Request, res: Response) => {
   return res.status(200).json(groupData);
 };
 
-export const sendGroupMessage = async (req: Request, res: Response) => {
+export const sendGroupMessage = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupMessageInput;
   const groupId = new ObjectId(req.params.groupId);
@@ -195,7 +195,7 @@ export const sendGroupMessage = async (req: Request, res: Response) => {
   }
 };
 
-export const getGroupMessages = async (req: Request, res: Response) => {
+export const getGroupMessages = async (req: Request, res: Response): Promise<any> => {
   const groupId = new ObjectId(req.params.groupId);
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = parseInt(req.query.offset as string) || 0;
@@ -318,7 +318,7 @@ export const getGroupMessages = async (req: Request, res: Response) => {
   return res.status(200).json(updatedMessages);
 };
 
-export const getGroupById = async (req: Request, res: Response) => {
+export const getGroupById = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const [group] = await groupsRepository
@@ -358,7 +358,7 @@ export const getGroupById = async (req: Request, res: Response) => {
   return res.status(200).json(group);
 };
 
-export const editGroupMessage = async (req: Request, res: Response) => {
+export const editGroupMessage = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const messageId = new ObjectId(req.params.messageId);
   const body = req.body as EditGroupMessageInput;
@@ -383,7 +383,7 @@ export const editGroupMessage = async (req: Request, res: Response) => {
   return res.json(result);
 };
 
-export const deleteGroupMessage = async (req: Request, res: Response) => {
+export const deleteGroupMessage = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const messageId = new ObjectId(req.params.messageId);
   const messages = await groupMessagesRepository.findOne({ _id: messageId });
@@ -406,7 +406,7 @@ export const deleteGroupMessage = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'MESSAGE DELETED' });
 };
 
-export const leaveGroup = async (req: Request, res: Response) => {
+export const leaveGroup = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const isAdmin = await groupsRepository.findOne({ _id: groupId, admin: userId });
@@ -419,7 +419,7 @@ export const leaveGroup = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'LEFT THE GROUP' });
 };
 
-export const promoteToAdmin = async (req: Request, res: Response) => {
+export const promoteToAdmin = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const moderatorId = new ObjectId(req.params.moderatorId);
@@ -444,7 +444,7 @@ export const promoteToAdmin = async (req: Request, res: Response) => {
   return res.status(200).json(updatedGroup);
 };
 
-export const kickMemberFromGroup = async (req: Request, res: Response) => {
+export const kickMemberFromGroup = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const memberId = new ObjectId(req.params.memberId);
@@ -465,7 +465,7 @@ export const kickMemberFromGroup = async (req: Request, res: Response) => {
   }
 };
 
-export const kickGroupMembers = async (req: Request, res: Response) => {
+export const kickGroupMembers = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const body = req.body as DeleteMembersInput;
   const groupId = new ObjectId(req.params.groupId);
@@ -492,7 +492,7 @@ export const kickGroupMembers = async (req: Request, res: Response) => {
   }
 };
 
-export const demoteModeratorToMember = async (req: Request, res: Response) => {
+export const demoteModeratorToMember = async (req: Request, res: Response): Promise<any> => {
   const adminId = new ObjectId(req.user!.userId);
   const moderatorId = new ObjectId(req.params.moderatorId);
   const groupId = new ObjectId(req.params.groupId);
@@ -504,7 +504,7 @@ export const demoteModeratorToMember = async (req: Request, res: Response) => {
   return res.status(200).json(demoteModerator);
 };
 
-export const getGroupMedia = async (req: Request, res: Response) => {
+export const getGroupMedia = async (req: Request, res: Response): Promise<any> => {
   const groupId = new ObjectId(req.params.groupId);
   const userId = new ObjectId(req.user!.userId);
   const groupMedia = await groupMessagesRepository
@@ -521,7 +521,7 @@ export const getGroupMedia = async (req: Request, res: Response) => {
   return res.status(200).json(groupMedia);
 };
 
-export const sendGroupReaction = async (req: Request, res: Response) => {
+export const sendGroupReaction = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const body = req.body as SendGroupReactionInput;
   const messageId = new ObjectId(body.messageId);
@@ -545,7 +545,7 @@ export const sendGroupReaction = async (req: Request, res: Response) => {
   return res.status(200).json({ ...groupMessage, isReacted: true });
 };
 
-export const deleteGroupReaction = async (req: Request, res: Response) => {
+export const deleteGroupReaction = async (req: Request, res: Response): Promise<any> => {
   const reactionId = new ObjectId(req.params.reactionId);
   const senderId = new ObjectId(req.user!.userId);
   await groupReactionsRepository.deleteOne({ _id: reactionId, senderId: senderId });
@@ -566,7 +566,7 @@ export const deleteGroupReaction = async (req: Request, res: Response) => {
   return res.json({ ...groupMessage, isReacted: false });
 };
 
-export const sendGroupMessageReply = async (req: Request, res: Response) => {
+export const sendGroupMessageReply = async (req: Request, res: Response): Promise<any> => {
   const senderId = new ObjectId(req.user!.userId);
   const groupId = new ObjectId(req.params.groupId);
   const body = req.body as SendGroupMessageReplyInput;

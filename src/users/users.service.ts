@@ -1,6 +1,10 @@
+import axios from 'axios';
 import { Request, Response } from 'express';
+import fs from 'fs';
 import { ObjectId, WithId } from 'mongodb';
 import nodemailer from 'nodemailer';
+import path from 'path';
+import puppeteer from 'puppeteer';
 import { shake } from 'radash';
 import { onlineUsers } from '..';
 import { FollowersEntity } from '../entities/followers.entity';
@@ -10,19 +14,19 @@ import { followersRepository, userProfilesRepository } from '../util/repositorie
 import { SendEmailInput } from './dto/send-email.dto';
 import { UpdateUserInput } from './dto/update-user.dto';
 
-export const updatePostCount = async (userId: ObjectId, count: 1 | -1) => {
+export const updatePostCount = async (userId: ObjectId, count: 1 | -1): Promise<any> => {
   await userProfilesRepository.updateOne({ userId }, { $inc: { postCount: count } });
 };
 
-export const updateFollowerCount = async (userId: ObjectId, count: 1 | -1) => {
+export const updateFollowerCount = async (userId: ObjectId, count: 1 | -1): Promise<any> => {
   await userProfilesRepository.updateOne({ userId }, { $inc: { followerCount: count } });
 };
 
-export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1) => {
+export const updateFollowingCount = async (userId: ObjectId, count: 1 | -1): Promise<any> => {
   await userProfilesRepository.updateOne({ userId }, { $inc: { followingCount: count } });
 };
 
-export const getUserProfileByUsernameOrId = async (req: Request, res: Response) => {
+export const getUserProfileByUsernameOrId = async (req: Request, res: Response): Promise<any> => {
   const userId = new ObjectId(req.user!.userId);
   const where = ObjectId.isValid(req.params.usernameOrId)
     ? { _id: new ObjectId(req.params.usernameOrId) }
@@ -119,7 +123,7 @@ export const getUserProfileByUsernameOrId = async (req: Request, res: Response) 
   return res.status(200).json(data);
 };
 
-export const getUserProfiles = async (req: Request, res: Response) => {
+export const getUserProfiles = async (req: Request, res: Response): Promise<any> => {
   const text = req.query.q as string;
   if (!text) return res.status(400).json({ error: "Parameter can't be empty" });
 
@@ -151,7 +155,7 @@ export const getUserProfiles = async (req: Request, res: Response) => {
   return res.json(result);
 };
 
-export const updateUserProfile = async (req: Request, res: Response) => {
+export const updateUserProfile = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as UpdateUserInput;
   const userId = new ObjectId(req.user!.userId);
 
@@ -192,7 +196,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
   }
 };
 
-export const getFollowing = async (req: Request, res: Response) => {
+export const getFollowing = async (req: Request, res: Response): Promise<any> => {
   const followingUserId = new ObjectId(req.params.userId);
   const following = await followersRepository
     .aggregate([
@@ -240,7 +244,7 @@ export const getFollowing = async (req: Request, res: Response) => {
   return res.json(data);
 };
 
-export const getFollowers = async (req: Request, res: Response) => {
+export const getFollowers = async (req: Request, res: Response): Promise<any> => {
   const followedUserId = new ObjectId(req.params.userId);
   const follower = await followersRepository
     .aggregate([
@@ -287,7 +291,7 @@ export const getFollowers = async (req: Request, res: Response) => {
   return res.json(data);
 };
 
-export const followProfile = async (req: Request, res: Response) => {
+export const followProfile = async (req: Request, res: Response): Promise<any> => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
@@ -313,7 +317,7 @@ export const followProfile = async (req: Request, res: Response) => {
   return res.status(200).json({ ...followedProfile, isFollowing: true });
 };
 
-export const unFollowProfile = async (req: Request, res: Response) => {
+export const unFollowProfile = async (req: Request, res: Response): Promise<any> => {
   const followingUserId = new ObjectId(req.user!.userId);
   const followedUserId = new ObjectId(req.params.userId);
 
@@ -329,7 +333,7 @@ export const unFollowProfile = async (req: Request, res: Response) => {
   return res.status(200).json({ message: 'UNFOLLOWED' });
 };
 
-export const sendReport = async (req: Request, res: Response) => {
+export const sendReport = async (req: Request, res: Response): Promise<any> => {
   const body = req.body as SendEmailInput;
   const to = body.to;
   if (!to.length) return res.status(400).json({ message: 'Recipient not found!' });
